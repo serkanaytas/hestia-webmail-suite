@@ -1,0 +1,32 @@
+RewriteEngine On
+RewriteBase /
+
+# Dizin listelemeyi kapat
+Options -Indexes
+
+# Hassas dosyalara doğrudan HTTP erişimini engelle (config.php, .sql, .log, composer.*, .git, .vscode)
+<FilesMatch "^(config\.php|database_setup\.sql|composer\.(json|lock)|worker_import\.php|.*\.(sql|log|env|bak|ini|sh|Cache))$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Gizli klasörlere (.git, .vscode vb.) erişimi engelle
+RewriteRule ^(?:application|system|\.git|\.vscode)/ - [F,L]
+
+# Güvenlik Başlıkları (HTTP Security Headers)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Var olan dosya veya dizin değilse index.php'ye yönlendir
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?/$1 [L,QSA]

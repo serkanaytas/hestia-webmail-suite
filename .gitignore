@@ -1,0 +1,27 @@
+# Local & Server-Specific Configuration
+config.local.php
+.env
+.env.*
+
+# User Uploads, Cache & Runtime Files
+uploads/cache/*
+!uploads/cache/.gitkeep
+uploads/chat/*
+!uploads/chat/.gitkeep
+uploads/drive/*
+!uploads/drive/.htaccess
+!uploads/drive/.gitkeep
+
+# Logs & Temporary Files
+*.log
+*.tmp
+*.cache
+application/logs/*
+!application/logs/index.html
+
+# OS & Editor Directories
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+

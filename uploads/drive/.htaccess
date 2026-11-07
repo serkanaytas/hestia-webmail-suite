@@ -1,0 +1,6 @@
+# Prevent script execution
+Options -Indexes -ExecCGI
+<FilesMatch "(?i)\.(php|phtml|php3|php4|php5|php7|phps|cgi|pl|py|sh|bash)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
