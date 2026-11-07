@@ -7,8 +7,23 @@
 
 <p align="center">
   <a href="#-türkçe-dokümantasyon">🇹🇷 Türkçe Dokümantasyon</a> •
-  <a href="#-english-documentation">🇬🇧 English Documentation</a>
+  <a href="#-english-documentation">🇬🇧 English Documentation</a> •
+  <a href="wiki/Home.md">📚 Wiki Sayfaları / Wiki Pages</a>
 </p>
+
+---
+
+## 📚 Wiki Dokümantasyon Sayfaları / Official Wiki Pages
+
+| # | 🇹🇷 Türkçe Wiki Sayfası | 🇬🇧 English Wiki Page |
+| :--- | :--- | :--- |
+| **🏠** | [Wiki Ana Sayfa ve Mimari Şema](wiki/Home.md) | [Wiki Home & Architecture Diagram](wiki/Home.md) |
+| **01** | [Kurulum Rehberi (Sihirbaz & Manuel)](wiki/1-Kurulum-Rehberi-Installation-Guide.md) | [Installation Guide (Wizard & Manual)](wiki/1-Kurulum-Rehberi-Installation-Guide.md) |
+| **02** | [HestiaCP Sunucu Entegrasyonu (API & CLI)](wiki/2-HestiaCP-Entegrasyonu-HestiaCP-Integration.md) | [HestiaCP Server Integration (API & CLI)](wiki/2-HestiaCP-Entegrasyonu-HestiaCP-Integration.md) |
+| **03** | [Modüller ve Detaylı Kullanım Kılavuzu](wiki/3-Moduller-ve-Kullanim-Modules-and-Usage.md) | [Modules & Detailed User Guide](wiki/3-Moduller-ve-Kullanim-Modules-and-Usage.md) |
+| **04** | [Veritabanı Şeması (20 Tablo) ve Mimari](wiki/4-Veritabani-ve-Mimari-Database-and-Architecture.md) | [Database Schema (20 Tables) & Architecture](wiki/4-Veritabani-ve-Mimari-Database-and-Architecture.md) |
+| **05** | [Güvenlik Mimarisi ve Performans](wiki/5-Guvenlik-ve-Performans-Security-and-Performance.md) | [Security Architecture & Performance](wiki/5-Guvenlik-ve-Performans-Security-and-Performance.md) |
+| **06** | [SSS ve Sorun Giderme Kılavuzu](wiki/6-SSS-ve-Sorun-Giderme-FAQ-and-Troubleshooting.md) | [FAQ & Troubleshooting Guide](wiki/6-SSS-ve-Sorun-Giderme-FAQ-and-Troubleshooting.md) |
 
 ---
 
