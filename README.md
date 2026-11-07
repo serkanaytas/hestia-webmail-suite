@@ -6,10 +6,57 @@
 </p>
 
 <p align="center">
+  <a href="#-ekran-görüntüleri--screenshots">🖼️ Ekran Görüntüleri / Screenshots</a> •
   <a href="#-türkçe-dokümantasyon">🇹🇷 Türkçe Dokümantasyon</a> •
   <a href="#-english-documentation">🇬🇧 English Documentation</a> •
   <a href="wiki/Home.md">📚 Wiki Sayfaları / Wiki Pages</a>
 </p>
+
+---
+
+## 🖼️ Ekran Görüntüleri / Screenshots
+
+### 1. 📬 Gelen Kutusu & E-Posta Okuyucu (Inbox & Email Reader)
+![Gelen Kutusu ve E-Posta Okuyucu](assets/images/screenshots/01-inbox-mail-reader.png)
+
+### 2. ☑️ Toplu Seçim (Görünenler / Tüm Klasör) & Klasöre Taşıma (Bulk Selection & Move)
+![Toplu Seçim ve Klasöre Taşıma](assets/images/screenshots/02-bulk-select-all-folder.png)
+
+### 3. ✍️ Zengin Metinli Yeni İleti & Kurumsal İmza (Rich HTML Composer & Signature)
+![Yeni İleti ve Kurumsal İmza](assets/images/screenshots/03-compose-email.png)
+
+### 4. 👥 Adres Defteri & Domain Kullanıcıları Rehberi (Address Book & Domain Directory)
+![Adres Defteri ve Kişiler](assets/images/screenshots/04-address-book-contacts.png)
+
+### 5. 📅 Paylaşımlı Kurumsal Takvim (Shared Corporate Calendar)
+![Paylaşımlı Kurumsal Takvim](assets/images/screenshots/05-shared-calendar.png)
+
+### 6. ✅ Yapılacaklar & Görev Yönetimi (To-Do & Task Manager)
+![Yapılacaklar ve Görev Yönetimi](assets/images/screenshots/06-todo-tasks.png)
+
+### 7. 📝 Kişisel Notlar (Personal Notes)
+![Kişisel Notlar](assets/images/screenshots/07-personal-notes.png)
+
+### 8. ☁️ Bulut Disk & Dosya Depolama (Cloud Disk Storage)
+![Bulut Disk Depolama](assets/images/screenshots/08-cloud-disk-storage.png)
+
+### 9. 💬 Domain İçi Anlık Mesajlaşma (Internal Domain Chat)
+![Domain İçi Anlık Mesajlaşma](assets/images/screenshots/09-internal-domain-chat.png)
+
+### 10. 🎨 Renk Temaları, Duvar Kağıtları & Çoklu Dil (Themes, Wallpapers & Multi-Language)
+![Görünüm, Renk Temaları ve Çoklu Dil](assets/images/screenshots/10-themes-and-languages.png)
+
+### 11. 🔀 Otomatik E-Posta Filtreleri & Kurallar (Email Filters & Auto-Routing)
+![Otomatik E-Posta Filtreleri ve Kurallar](assets/images/screenshots/11-email-filters-rules.png)
+
+### 12. 🔄 Harici IMAP E-Posta Taşıma Sihirbazı (External IMAP Mail Migration)
+![Harici E-Posta Taşıma Sihirbazı](assets/images/screenshots/12-imap-mail-migration.png)
+
+### 13. 👑 Yönetim Paneli & Kurumsal Hesaplar (Admin Panel & Corporate Accounts)
+![Yönetim Paneli ve Kurumsal Hesaplar](assets/images/screenshots/13-admin-panel-accounts.png)
+
+### 14. ⚙️ HestiaCP Entegrasyon Modları: Uzak API & Yerel CLI (HestiaCP Server Settings)
+![HestiaCP Entegrasyon ve Sunucu Ayarları](assets/images/screenshots/14-hestiacp-server-settings.png)
 
 ---
 

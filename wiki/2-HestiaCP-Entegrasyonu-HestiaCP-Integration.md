@@ -64,6 +64,14 @@ Ardından Webmail **Yönetim Paneli &rarr; Sunucu Ayarları** penceresinden:
 - **Sudo Kullanımı:** `Aktif (sudo -n)`
 seçip kaydedin.
 
+### 📸 Ekran Görüntüleri / Screenshots
+
+#### Yönetim Paneli & Kurumsal Hesap Listesi
+![Yönetim Paneli](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/13-admin-panel-accounts.png)
+
+#### HestiaCP Entegrasyon & Sunucu Ayarları (Uzak API & Yerel CLI)
+![HestiaCP Sunucu Ayarları](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/14-hestiacp-server-settings.png)
+
 ---
 ---
 
@@ -87,3 +95,4 @@ echo 'www-data ALL=(ALL) NOPASSWD: /usr/local/hestia/bin/*' | sudo tee /etc/sudo
 sudo chmod 440 /etc/sudoers.d/hestia-webmail
 ```
 Then select **Same Server / Local CLI (`local`)** in **Admin Panel &rarr; Server Settings**.
+

@@ -20,6 +20,11 @@
 - **E-Posta İletme (Forward) ve Ekler:**
   - Bir e-postayı **İlet (Forward)** butonuna bastığınızda orijinal e-postadaki tüm ek dosyalar otomatik olarak yeni iletiye aktarılır.
 
+![Gelen Kutusu ve Okuyucu](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/01-inbox-mail-reader.png)
+![Toplu Seçim - Tüm Klasör](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/02-bulk-select-all-folder.png)
+![Yeni İleti Oluşturma](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/03-compose-email.png)
+![Otomatik Filtreler](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/11-email-filters-rules.png)
+
 ---
 
 ## 2. 👥 Adres Defteri & Kurumsal Rehber
@@ -30,6 +35,8 @@
 - **CSV İçe / Dışa Aktarma:**
   - Toplu kişi listelerinizi `.csv` formatında içe veya dışa aktarabilirsiniz.
 
+![Adres Defteri ve Kişiler](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/04-address-book-contacts.png)
+
 ---
 
 ## 3. 📅 Paylaşımlı Kurumsal Takvim
@@ -39,12 +46,16 @@
 - **E-Posta Davetiyeleri (`.ics`):**
   - Gelen e-postalardaki toplantı davetlerini (**Kabul Et / Belki / Reddet**) doğrudan e-posta okuma ekranından yanıtlayabilirsiniz.
 
+![Paylaşımlı Kurumsal Takvim](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/05-shared-calendar.png)
+
 ---
 
 ## 4. 💬 Domain İçi Anlık Mesajlaşma (Kurumsal Chat)
 - Sağ alttaki yüzen sohbet butonundan veya sol menüdeki **Mesajlaşma** sekmesinden açılır.
 - Aynı kurumsal domaindeki çalışma arkadaşlarınızla **1'e 1 özel sohbet** veya **grup sohbeti** başlatabilirsiniz.
 - Dosya/görsel gönderimi, mesaj sabitleme (pin), emoji tepkileri, çevrimiçi durum (`Çevrimiçi`, `Meşgul`, `Uzakta`) ve *"yazıyor..."* bildirimlerini destekler.
+
+![Domain İçi Mesajlaşma](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/09-internal-domain-chat.png)
 
 ---
 
@@ -53,11 +64,18 @@
 - **Notlar:** Renk kodlu ve sabitlenebilir (pin) hızlı not kartları.
 - **Görevler:** Son teslim tarihi ve öncelik derecesi (`Yüksek`, `Orta`, `Düşük`) içeren yapılacaklar listesi.
 
+![Bulut Disk Depolama](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/08-cloud-disk-storage.png)
+![Yapılacaklar ve Görevler](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/06-todo-tasks.png)
+![Kişisel Notlar](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/07-personal-notes.png)
+
 ---
 
-## 6. 🔄 Harici E-Posta Taşıma Aracı (`worker_import.php`)
+## 6. 🔄 Harici E-Posta Taşıma Aracı (`worker_import.php`) & 🎨 Temalar
 - **Ayarlar &rarr; E-Posta Taşıma (İçe Aktar)** sekmesinden eski Gmail, Yandex, Outlook veya cPanel posta kutunuzun IMAP bilgilerini girerek tüm geçmiş e-postalarınızı arka planda mevcut hesabınıza aktarabilirsiniz.
 - Arka plan işçisi (`worker_import.php`) mükerrer (duplicate) kontrolü yapar ve canlı ilerleme yüzdesi sunar.
+
+![Harici E-Posta Taşıma Sihirbazı](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/12-imap-mail-migration.png)
+![Görünüm, Temalar ve Çoklu Dil](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/10-themes-and-languages.png)
 
 ---
 ---
@@ -78,3 +96,4 @@
 
 ## 4. 💬 Internal Domain Chat & 🔄 IMAP Migration Worker
 - Collaborate in real time with colleagues on your domain via 1-on-1 and group chats, and migrate legacy mailboxes in the background using `worker_import.php`.
+

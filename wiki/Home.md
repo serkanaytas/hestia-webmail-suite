@@ -68,3 +68,17 @@ flowchart TD
    chmod -R 755 uploads/ && chmod 644 config.php
    ```
 3. Visit `https://mail.yourdomain.com/wizard.php` in your browser and complete the 4-step setup wizard.
+
+---
+
+## 🖼️ Arayüz Önizlemeleri / Interface Previews
+
+### 📬 E-Posta İstemcisi (Webmail Inbox & Reader)
+![Webmail Inbox](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/01-inbox-mail-reader.png)
+
+### 👑 Yönetim Paneli & HestiaCP Entegrasyonu (Admin Panel & HestiaCP Integration)
+![Admin Panel](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/13-admin-panel-accounts.png)
+
+### 🎨 Tema ve Çoklu Dil Yönetimi (Themes & Multi-Language)
+![Themes and Languages](https://raw.githubusercontent.com/serkanaytas/hestia-webmail-suite/main/assets/images/screenshots/10-themes-and-languages.png)
+

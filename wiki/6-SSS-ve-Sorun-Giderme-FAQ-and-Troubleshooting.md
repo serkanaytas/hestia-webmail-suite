@@ -50,3 +50,4 @@ sudo chmod 440 /etc/sudoers.d/hestia-webmail
 
 ### Q3: Why can't Remote REST API mode connect to Port 8083?
 **Answer:** Verify that Port `8083` is open in your firewall and that your webmail server's IP address is whitelisted under **HestiaCP &rarr; Server Settings &rarr; Security &rarr; Allowed IP addresses for API**.
+

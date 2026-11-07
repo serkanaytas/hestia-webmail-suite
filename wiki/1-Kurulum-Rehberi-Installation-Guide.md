@@ -112,3 +112,4 @@ Ensure your server meets the following requirements before installing:
    ```
 2. **Configure Credentials:**
    Copy `config.example.php` to `config.local.php` (or edit `config.php` directly) and set `DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `MAIL_DOMAIN`, `MAIL_IMAP_HOST`, and `MAIL_SMTP_HOST`.
+

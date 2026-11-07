@@ -46,3 +46,4 @@
 ## 2. Performance Optimizations
 - **Early Session Unlock (`session_write_close()`):** Prevents concurrent AJAX requests from blocking each other during IMAP/SMTP network calls.
 - **Non-Blocking Responses:** Meeting invite RSVPs flush the JSON response immediately to the browser before sending background SMTP notifications.
+

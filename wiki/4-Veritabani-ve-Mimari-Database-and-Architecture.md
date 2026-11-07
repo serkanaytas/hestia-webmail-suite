@@ -64,3 +64,4 @@
 - **`wizard.php`**: Interactive 4-step installer and manual configuration generator.
 - **`worker_import.php`**: Background PHP CLI daemon for migrating external IMAP mailboxes without HTTP timeouts.
 - **`database_setup.sql`**: Complete 20-table UTF8MB4 database schema.
+

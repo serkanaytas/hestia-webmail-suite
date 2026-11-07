@@ -12,3 +12,4 @@
 **🔗 Bağlantılar / Links**
 * [GitHub Repo](https://github.com/serkanaytas/hestia-webmail-suite)
 * [Hata Bildir / Report Issue](https://github.com/serkanaytas/hestia-webmail-suite/issues)
+
