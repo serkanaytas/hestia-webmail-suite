@@ -268,7 +268,7 @@ Webmail doğrudan HestiaCP kurulu Linux sunucuda çalışıyorsa Port `8083` vey
    - Migrate historical emails from Gmail, Outlook, Yandex, or any external IMAP server in the background with duplicate detection and live progress tracking.
 
 7. **⚙️ HestiaCP Mail Administration Panel:**
-   - Create, edit, suspend, and delete domain mailboxes, manage quotas, aliases, forwarders, and autoresponders directly from the webmail UI via **Remote REST API (Port 8083)** or **Local CLI (`/usr/local/hestia/bin`)**.
+   - Create, edit, and delete domain mailboxes, manage quotas, aliases, forwarders, and autoresponders directly from the webmail UI via **Remote REST API (Port 8083)** or **Local CLI (`/usr/local/hestia/bin`)**.
 
 ---
 

@@ -15,7 +15,7 @@
 - Kota (MB / Sınırsız) tanımlama (`v-change-mail-account-quota`),
 - Takma ad (Alias) ve Yönlendirme (Forwarder) ekleme/silme,
 - Otomatik yanıtlayıcı (Autoreply) açma/kapatma,
-- Hesap askıya alma (Suspend) ve silme
+- Hesap silme (`v-delete-mail-account`)
 
 işlemlerini yapmanızı sağlar. Sistem **iki farklı çalışma modunu** destekler:
 
@@ -77,7 +77,7 @@ seçip kaydedin.
 
 # 🇬🇧 English HestiaCP Integration Guide
 
-**Hestia Webmail Suite** integrates directly with your HestiaCP control panel to manage domain mailboxes (create accounts, change passwords, set quotas, configure aliases, forwarders, autoresponders, suspend/unsuspend, and delete accounts) directly from the webmail Administration Panel.
+**Hestia Webmail Suite** integrates directly with your HestiaCP control panel to manage domain mailboxes (create accounts, change passwords, set quotas, configure aliases, forwarders, autoresponders, and delete accounts) directly from the webmail Administration Panel.
 
 ## Mode 1: Remote Server / REST API Mode (`remote`) — Port 8083
 1. Log in to your HestiaCP panel (`https://mail.yourdomain.com:8083`).
