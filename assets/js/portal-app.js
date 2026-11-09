@@ -1494,9 +1494,19 @@ function buildMailItemHtml(msg) {
     selectedMailUids.add(msg.uid);
   }
   const isSelected = isAllFolderSelected || selectedMailUids.has(msg.uid);
+  const msgFolder = msg.folder || currentFolder || '';
+  const isSentMsg = Boolean(
+    msg.is_sent ||
+    msgFolder.toLowerCase().includes('sent') ||
+    msgFolder.toLowerCase().includes('gönderilen')
+  );
   const sender = (msg.from && (msg.from.name || msg.from.email)) ? (msg.from.name || msg.from.email) : (typeof msg.from === 'string' ? msg.from : 'Bilinmeyen');
-  const initial = sender.charAt(0).toUpperCase();
-  const msgFolder = msg.folder || currentFolder;
+  const recipient = (msg.to && (msg.to.name || msg.to.email)) ? (msg.to.name || msg.to.email) : (typeof msg.to === 'string' ? msg.to : '');
+  const displayPerson = (isSentMsg && recipient) ? recipient : sender;
+  const displayTooltip = (isSentMsg && msg.to && (msg.to.raw || msg.to.email || recipient))
+    ? ('Kime: ' + (msg.to.raw || msg.to.email || recipient))
+    : sender;
+  const initial = (displayPerson.replace(/^["'\s]+/, '').charAt(0) || '?').toUpperCase();
   const folderTag = (msg.folder_tag && (isAllFoldersSearch || currentFolder === 'ALL')) 
     ? `<span class="mail-folder-pill" title="Klasör: ${escapeHtml(msg.folder)}">${escapeHtml(msg.folder_tag)}</span>` 
     : '';
@@ -1508,10 +1518,10 @@ function buildMailItemHtml(msg) {
       <div style="display:flex;align-items:center;padding-right:2px;flex-shrink:0;" onclick="event.stopPropagation()">
         <input type="checkbox" class="mail-select-chk" data-uid="${msg.uid}" ${isSelected ? 'checked' : ''} onchange="onMailItemCheckboxChange(${msg.uid}, this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:var(--primary);border-radius:0 !important;margin:0;">
       </div>
-      <div class="mail-avatar" title="${escapeHtml(sender)}">${initial}</div>
+      <div class="mail-avatar" title="${escapeHtml(displayTooltip)}">${initial}</div>
       <div class="mail-content">
         <div class="mail-header-row">
-          <span class="mail-sender" title="${escapeHtml(sender)}">${escapeHtml(sender)}</span>
+          <span class="mail-sender" title="${escapeHtml(displayTooltip)}">${escapeHtml(displayPerson)}</span>
           <div class="mail-badges-inline">
             ${msg.has_attachment ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);vertical-align:middle;" title="Ek dosya var"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>' : ''}
             <button class="star-btn ${msg.is_flagged ? 'starred' : ''}" onclick="toggleStar(${msg.uid}, event, '${escapeHtml(msgFolder)}')" title="${msg.is_flagged ? 'Yıldızı Kaldır' : 'Yıldızla'}">
@@ -1908,12 +1918,16 @@ function sortVisibleMailItems(sortKey) {
     } else if (sortKey === 'date_desc') {
       return (msgB.timestamp || 0) - (msgA.timestamp || 0);
     } else if (sortKey === 'from_asc') {
-      const nameA = (msgA.from && (msgA.from.name || msgA.from.email)) ? (msgA.from.name || msgA.from.email) : '';
-      const nameB = (msgB.from && (msgB.from.name || msgB.from.email)) ? (msgB.from.name || msgB.from.email) : '';
+      const pA = (msgA.is_sent && msgA.to && (msgA.to.name || msgA.to.email)) ? msgA.to : msgA.from;
+      const pB = (msgB.is_sent && msgB.to && (msgB.to.name || msgB.to.email)) ? msgB.to : msgB.from;
+      const nameA = (pA && (pA.name || pA.email)) ? (pA.name || pA.email) : '';
+      const nameB = (pB && (pB.name || pB.email)) ? (pB.name || pB.email) : '';
       return collator ? collator.compare(nameA, nameB) : nameA.localeCompare(nameB);
     } else if (sortKey === 'from_desc') {
-      const nameA = (msgA.from && (msgA.from.name || msgA.from.email)) ? (msgA.from.name || msgA.from.email) : '';
-      const nameB = (msgB.from && (msgB.from.name || msgB.from.email)) ? (msgB.from.name || msgB.from.email) : '';
+      const pA = (msgA.is_sent && msgA.to && (msgA.to.name || msgA.to.email)) ? msgA.to : msgA.from;
+      const pB = (msgB.is_sent && msgB.to && (msgB.to.name || msgB.to.email)) ? msgB.to : msgB.from;
+      const nameA = (pA && (pA.name || pA.email)) ? (pA.name || pA.email) : '';
+      const nameB = (pB && (pB.name || pB.email)) ? (pB.name || pB.email) : '';
       return collator ? collator.compare(nameB, nameA) : nameB.localeCompare(nameA);
     } else if (sortKey === 'subject_asc') {
       const subA = msgA.subject || '';
@@ -1951,12 +1965,16 @@ function sortMessagesArray(msgs, sortKey) {
       const diff = (b.timestamp || 0) - (a.timestamp || 0);
       return diff !== 0 ? diff : ((b.msg_no || 0) - (a.msg_no || 0));
     } else if (sortKey === 'from_asc') {
-      const nameA = (a.from && (a.from.name || a.from.email)) ? (a.from.name || a.from.email) : '';
-      const nameB = (b.from && (b.from.name || b.from.email)) ? (b.from.name || b.from.email) : '';
+      const pA = (a.is_sent && a.to && (a.to.name || a.to.email)) ? a.to : a.from;
+      const pB = (b.is_sent && b.to && (b.to.name || b.to.email)) ? b.to : b.from;
+      const nameA = (pA && (pA.name || pA.email)) ? (pA.name || pA.email) : '';
+      const nameB = (pB && (pB.name || pB.email)) ? (pB.name || pB.email) : '';
       return collator ? collator.compare(nameA, nameB) : nameA.localeCompare(nameB);
     } else if (sortKey === 'from_desc') {
-      const nameA = (a.from && (a.from.name || a.from.email)) ? (a.from.name || a.from.email) : '';
-      const nameB = (b.from && (b.from.name || b.from.email)) ? (b.from.name || b.from.email) : '';
+      const pA = (a.is_sent && a.to && (a.to.name || a.to.email)) ? a.to : a.from;
+      const pB = (b.is_sent && b.to && (b.to.name || b.to.email)) ? b.to : b.from;
+      const nameA = (pA && (pA.name || pA.email)) ? (pA.name || pA.email) : '';
+      const nameB = (pB && (pB.name || pB.email)) ? (pB.name || pB.email) : '';
       return collator ? collator.compare(nameB, nameA) : nameB.localeCompare(nameA);
     } else if (sortKey === 'subject_asc') {
       const subA = a.subject || '';

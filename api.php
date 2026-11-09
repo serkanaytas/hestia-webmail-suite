@@ -1904,6 +1904,38 @@ function parse_address_list($address_objects, $address_string = '') {
     return $result;
 }
 
+// Helper: Summarize recipient(s) for message list rows (especially Sent folder)
+function parse_recipient_summary($to_raw) {
+    if (empty($to_raw)) {
+        return ['name' => '', 'email' => '', 'raw' => ''];
+    }
+    $list = parse_address_list(null, $to_raw);
+    if (!empty($list)) {
+        $names = [];
+        $emails = [];
+        foreach ($list as $item) {
+            $n = trim($item['name'] ?? '');
+            $e = trim($item['email'] ?? '');
+            if ($n !== '') $names[] = $n;
+            elseif ($e !== '') $names[] = $e;
+            if ($e !== '') $emails[] = $e;
+        }
+        $joinedNames = implode(', ', $names);
+        $joinedEmails = implode(', ', $emails);
+        return [
+            'name' => safe_utf8($joinedNames ?: $joinedEmails),
+            'email' => safe_utf8($joinedEmails),
+            'raw' => safe_utf8(decode_mime($to_raw))
+        ];
+    }
+    $single = parse_address(decode_mime($to_raw));
+    return [
+        'name' => $single['name'] ?? '',
+        'email' => $single['email'] ?? '',
+        'raw' => $single['raw'] ?? ''
+    ];
+}
+
 // Helper: Robustly parse email date from Date: header, falling back to udate only if missing or unparseable
 function parse_email_timestamp($date_str, $fallback_udate = 0) {
     if (!empty($date_str)) {
@@ -2468,6 +2500,7 @@ switch ($action) {
                             if ($has_attachment && !$has_att) continue;
 
                             $timestamp = parse_email_timestamp($ov->date ?? '', $ov->udate ?? 0);
+                            $is_t_sent = (stripos($tFolder, 'sent') !== false || mb_stripos($tFolder, 'gönderilen', 0, 'UTF-8') !== false);
                             $allCollected[] = [
                                 'folder' => $tFolder,
                                 'folder_tag' => ($tFolder === 'INBOX' ? 'Gelen' : ($tFolder === 'Sent' ? 'Giden' : ($tFolder === 'Trash' ? 'Çöp' : ($tFolder === 'Drafts' ? 'Taslak' : $tFolder)))),
@@ -2475,6 +2508,8 @@ switch ($action) {
                                 'msg_no' => $mno,
                                 'subject' => ($ov && !empty($ov->subject)) ? decode_mime($ov->subject) : '(Konusuz)',
                                 'from' => ($ov && !empty($ov->from)) ? parse_address(decode_mime($ov->from)) : ['name' => 'Bilinmeyen', 'email' => ''],
+                                'to' => ($ov && !empty($ov->to)) ? parse_recipient_summary($ov->to) : ['name' => '', 'email' => '', 'raw' => ''],
+                                'is_sent' => $is_t_sent,
                                 'date' => format_email_date($timestamp),
                                 'timestamp' => $timestamp,
                                 'is_seen' => !empty($ov->seen),
@@ -2491,12 +2526,16 @@ switch ($action) {
                 if ($sort === 'date_asc') {
                     return $a['timestamp'] - $b['timestamp'];
                 } elseif ($sort === 'from_asc' || $sort === 'name_asc') {
-                    $nA = $a['from']['name'] ?: $a['from']['email'] ?: '';
-                    $nB = $b['from']['name'] ?: $b['from']['email'] ?: '';
+                    $pA = (!empty($a['is_sent']) && !empty($a['to']['name'])) ? $a['to'] : $a['from'];
+                    $pB = (!empty($b['is_sent']) && !empty($b['to']['name'])) ? $b['to'] : $b['from'];
+                    $nA = $pA['name'] ?: $pA['email'] ?: '';
+                    $nB = $pB['name'] ?: $pB['email'] ?: '';
                     return tr_compare_strings($nA, $nB);
                 } elseif ($sort === 'from_desc' || $sort === 'name_desc') {
-                    $nA = $a['from']['name'] ?: $a['from']['email'] ?: '';
-                    $nB = $b['from']['name'] ?: $b['from']['email'] ?: '';
+                    $pA = (!empty($a['is_sent']) && !empty($a['to']['name'])) ? $a['to'] : $a['from'];
+                    $pB = (!empty($b['is_sent']) && !empty($b['to']['name'])) ? $b['to'] : $b['from'];
+                    $nA = $pA['name'] ?: $pA['email'] ?: '';
+                    $nB = $pB['name'] ?: $pB['email'] ?: '';
                     return tr_compare_strings($nB, $nA);
                 } elseif ($sort === 'subject_asc') {
                     return tr_compare_strings($a['subject'], $b['subject']);
@@ -2550,6 +2589,9 @@ switch ($action) {
             auto_clean_spam_folder($pdo, $acc, false, $conn, $folder);
         }
 
+        // Detect Sent folder so recipient (To) is used for display & name sorting
+        $is_sent_folder = (stripos($folder, 'sent') !== false || mb_stripos($folder, 'gönderilen', 0, 'UTF-8') !== false);
+
         // Map requested sort order to IMAP criteria
         $sort_crit = SORTDATE;
         $sort_reverse = 1; // Default: newest first (date_desc)
@@ -2557,10 +2599,10 @@ switch ($action) {
             $sort_crit = SORTDATE;
             $sort_reverse = 0;
         } elseif ($sort === 'from_asc' || $sort === 'name_asc') {
-            $sort_crit = SORTFROM;
+            $sort_crit = $is_sent_folder ? SORTTO : SORTFROM;
             $sort_reverse = 0;
         } elseif ($sort === 'from_desc' || $sort === 'name_desc') {
-            $sort_crit = SORTFROM;
+            $sort_crit = $is_sent_folder ? SORTTO : SORTFROM;
             $sort_reverse = 1;
         } elseif ($sort === 'subject_asc') {
             $sort_crit = SORTSUBJECT;
@@ -2637,7 +2679,7 @@ switch ($action) {
                         $all_search_msgs[] = [
                             'mno' => $mno,
                             'timestamp' => $ts,
-                            'from_raw' => $ov->from ?? '',
+                            'from_raw' => $is_sent_folder ? ($ov->to ?? $ov->from ?? '') : ($ov->from ?? ''),
                             'subject' => $ov->subject ?? ''
                         ];
                     }
@@ -2750,6 +2792,7 @@ switch ($action) {
             $uid = $ov ? $ov->uid : @imap_uid($conn, $mno);
             $subject = ($ov && !empty($ov->subject)) ? decode_mime($ov->subject) : '(Konusuz)';
             $from = ($ov && !empty($ov->from)) ? parse_address(decode_mime($ov->from)) : ['name' => 'Bilinmeyen', 'email' => ''];
+            $to = ($ov && !empty($ov->to)) ? parse_recipient_summary($ov->to) : ['name' => '', 'email' => '', 'raw' => ''];
             $timestamp = parse_email_timestamp($ov->date ?? '', $ov->udate ?? 0);
 
             // Attachment check (cached by UID)
@@ -2782,6 +2825,8 @@ switch ($action) {
                 'msg_no' => $mno,
                 'subject' => $subject,
                 'from' => $from,
+                'to' => $to,
+                'is_sent' => $is_sent_folder,
                 'date' => format_email_date($timestamp),
                 'timestamp' => $timestamp,
                 'is_seen' => !empty($ov->seen),
@@ -2830,14 +2875,18 @@ switch ($action) {
             });
         } elseif ($sort === 'from_asc' || $sort === 'name_asc') {
             usort($messages, function($a, $b) {
-                $nA = $a['from']['name'] ?: $a['from']['email'] ?: '';
-                $nB = $b['from']['name'] ?: $b['from']['email'] ?: '';
+                $pA = (!empty($a['is_sent']) && !empty($a['to']['name'])) ? $a['to'] : $a['from'];
+                $pB = (!empty($b['is_sent']) && !empty($b['to']['name'])) ? $b['to'] : $b['from'];
+                $nA = $pA['name'] ?: $pA['email'] ?: '';
+                $nB = $pB['name'] ?: $pB['email'] ?: '';
                 return tr_compare_strings($nA, $nB);
             });
         } elseif ($sort === 'from_desc' || $sort === 'name_desc') {
             usort($messages, function($a, $b) {
-                $nA = $a['from']['name'] ?: $a['from']['email'] ?: '';
-                $nB = $b['from']['name'] ?: $b['from']['email'] ?: '';
+                $pA = (!empty($a['is_sent']) && !empty($a['to']['name'])) ? $a['to'] : $a['from'];
+                $pB = (!empty($b['is_sent']) && !empty($b['to']['name'])) ? $b['to'] : $b['from'];
+                $nA = $pA['name'] ?: $pA['email'] ?: '';
+                $nB = $pB['name'] ?: $pB['email'] ?: '';
                 return tr_compare_strings($nB, $nA);
             });
         } elseif ($sort === 'subject_asc') {
