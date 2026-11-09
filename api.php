@@ -8266,52 +8266,6 @@ switch ($action) {
         ]);
         exit;
 
-    case 'admin_toggle_suspend':
-        $current_admin = require_admin($pdo);
-        $target_id = (int)($_POST['id'] ?? 0);
-        $suspend = !empty($_POST['suspend']) ? 1 : 0;
-
-        if ($target_id <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Geçersiz hesap.']);
-            exit;
-        }
-        if ($target_id === (int)$current_admin->id) {
-            echo json_encode(['success' => false, 'message' => 'Kendi aktif hesabınızı askıya alamazsınız!']);
-            exit;
-        }
-
-        $stmt = $pdo->prepare("SELECT * FROM mail_accounts WHERE id = ?");
-        $stmt->execute([$target_id]);
-        $target_acc = $stmt->fetch();
-        if (!$target_acc) {
-            echo json_encode(['success' => false, 'message' => 'Hesap bulunamadı.']);
-            exit;
-        }
-
-        $conf = get_hestia_config($pdo);
-        if (!$conf['is_configured']) {
-            echo json_encode(['success' => false, 'message' => 'HestiaCP API yapılandırılmamış.']);
-            exit;
-        }
-
-        $user_parts = explode('@', $target_acc->email);
-        $cmd = $suspend ? 'v-suspend-mail-account' : 'v-unsuspend-mail-account';
-        $callRes = call_hestia_api($pdo, $cmd, [$conf['user'], $user_parts[1] ?? MAIL_DOMAIN, $user_parts[0]], true);
-
-        if ($callRes['success'] && ($callRes['raw'] === '0' || trim($callRes['raw']) === 'OK' || empty($callRes['raw']))) {
-            echo json_encode([
-                'success' => true,
-                'is_suspended' => (bool)$suspend,
-                'message' => $suspend ? "Hesap ({$target_acc->email}) HestiaCP sunucusunda askıya alındı." : "Hesap ({$target_acc->email}) askıdan çıkarıldı, aktif edildi."
-            ]);
-        } else {
-            echo json_encode([
-                'success' => false,
-                'message' => 'HestiaCP işlemi tamamlayamadı: ' . ($callRes['message'] ?? $callRes['raw'] ?? 'Bilinmeyen hata')
-            ]);
-        }
-        exit;
-
     case 'admin_get_hestia_config':
         require_admin($pdo);
         $conf = get_hestia_config($pdo);

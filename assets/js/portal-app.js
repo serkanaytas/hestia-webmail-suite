@@ -10762,26 +10762,6 @@ function renderAdminAccountsTable(accounts) {
         </button>
       `;
 
-      // Hestia Suspend / Unsuspend action
-      let suspendBtn = '';
-      if (acc.hestia_synced) {
-        if (isSuspended) {
-          suspendBtn = `
-            <button type="button" class="admin-table-action-btn" style="color:var(--success);border-color:rgba(16,185,129,0.35);" title="Askı durumunu kaldır (Aktif et)" onclick="toggleAccountSuspend(${acc.id}, 0)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Aktif Et
-            </button>
-          `;
-        } else {
-          suspendBtn = `
-            <button type="button" class="admin-table-action-btn" style="color:#f59e0b;border-color:rgba(245,158,11,0.35);" title="Hestia sunucusunda askıya al" onclick="toggleAccountSuspend(${acc.id}, 1)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              Askıya Al
-            </button>
-          `;
-        }
-      }
-
       const switchBtn = `
         <button type="button" class="admin-table-action-btn" title="Bu kullanıcının gelen kutusuna geçiş yap" onclick="adminSwitchAccount(${acc.id})">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
@@ -10800,7 +10780,6 @@ function renderAdminAccountsTable(accounts) {
           ${editBtn}
           ${toggleBtn}
           ${passBtn}
-          ${suspendBtn}
           ${switchBtn}
           ${deleteBtn}
         </div>
@@ -11898,64 +11877,6 @@ function syncHestiaAccounts() {
         text: 'Sunucu bağlantı hatası: ' + err.message
       });
     });
-}
-
-function toggleAccountSuspend(id, suspend) {
-  const acc = adminAccountsCache.find(a => parseInt(a.id) === parseInt(id));
-  const email = acc ? acc.email : 'Seçilen hesap';
-
-  const actionTitle = suspend ? 'Hesabı Askıya Al' : 'Askı Durumunu Kaldır';
-  const actionText = suspend
-    ? `<strong>${escapeHtml(email)}</strong> hesabı HestiaCP posta sunucusunda askıya alınacaktır. Kullanıcı e-posta alamaz veya gönderemez.`
-    : `<strong>${escapeHtml(email)}</strong> hesabının askı durumu kaldırılacaktır. Kullanıcı tekrar aktif hale gelecektir.`;
-
-  Swal.fire({
-    title: actionTitle,
-    html: actionText,
-    icon: suspend ? 'warning' : 'question',
-    showCancelButton: true,
-    confirmButtonColor: suspend ? '#f59e0b' : 'var(--success, #10b981)',
-    cancelButtonColor: '#64748b',
-    confirmButtonText: suspend ? 'Evet, Askıya Al' : 'Evet, Aktif Et',
-    cancelButtonText: 'Vazgeç'
-  }).then(result => {
-    if (result.isConfirmed) {
-      const formData = new FormData();
-      formData.append('id', id);
-      formData.append('suspend', suspend ? '1' : '0');
-
-      fetch('api.php?action=admin_toggle_suspend', {
-        method: 'POST',
-        body: formData
-      })
-      .then(r => r.json())
-      .then(res => {
-        if (res.success) {
-          Swal.fire({
-            icon: 'success',
-            title: 'Başarılı',
-            text: res.message,
-            timer: 2000,
-            showConfirmButton: false
-          });
-          loadAdminDashboard();
-        } else {
-          Swal.fire({
-            icon: 'error',
-            title: 'İşlem Başarısız',
-            text: res.message || 'İşlem tamamlanamadı.'
-          });
-        }
-      })
-      .catch(err => {
-        Swal.fire({
-          icon: 'error',
-          title: 'Hata',
-          text: 'Bağlantı hatası: ' + err.message
-        });
-      });
-    }
-  });
 }
 
 // ==========================================
