@@ -12002,6 +12002,44 @@ function updateScreenLockClock() {
   }
 }
 
+function saveScreenLockSettings(notify = false) {
+  const chk = document.getElementById('setting-auto-lock-enabled');
+  const minInp = document.getElementById('setting-auto-lock-minutes');
+  const autoLockEnabled = chk ? (chk.checked ? 1 : 0) : 1;
+  let minutes = parseInt(minInp?.value || '15', 10);
+  if (isNaN(minutes) || minutes < 1) minutes = 1;
+  if (minutes > 480) minutes = 480;
+  if (minInp) minInp.value = minutes;
+
+  window.AUTO_LOCK_ENABLED = Boolean(autoLockEnabled);
+  window.AUTO_LOCK_MINUTES = minutes;
+  lastUserActivityTime = Date.now();
+
+  const fd = new FormData();
+  fd.append('action', 'save_screen_lock_settings');
+  fd.append('auto_lock_enabled', autoLockEnabled);
+  fd.append('auto_lock_minutes', minutes);
+
+  fetch('api.php', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.success) {
+        if (notify) showToast(data.message || 'Otomatik ekran kilitleme ayarları kaydedildi.', 'success');
+        const statusEl = document.getElementById('screen-lock-status-info');
+        if (statusEl) {
+          statusEl.textContent = autoLockEnabled
+            ? `Durum: Otomatik kilitleme aktif (${minutes} dakika)`
+            : 'Durum: Otomatik kilitleme kapalı';
+        }
+      } else {
+        if (notify) showToast((data && data.message) || 'Ayarlar kaydedilemedi.', 'error');
+      }
+    })
+    .catch(err => {
+      if (notify) showToast('Bağlantı hatası: ' + err.message, 'error');
+    });
+}
+
 function initScreenLockSystem() {
   // Check if previously locked
   try {
@@ -12021,7 +12059,7 @@ function initScreenLockSystem() {
     }
   });
 
-  // Track idle activity for auto lock (15 mins)
+  // Track idle activity for auto lock
   const resetIdle = () => {
     lastUserActivityTime = Date.now();
   };
@@ -12031,9 +12069,12 @@ function initScreenLockSystem() {
 
   setInterval(() => {
     try {
+      const autoLockEnabled = (window.AUTO_LOCK_ENABLED !== false);
+      if (!autoLockEnabled) return;
+      const idleLimitMinutes = Math.max(1, parseInt(window.AUTO_LOCK_MINUTES, 10) || AUTO_LOCK_IDLE_MINUTES);
       if (localStorage.getItem('webmail_screen_locked') !== '1') {
         const idleMinutes = (Date.now() - lastUserActivityTime) / 60000;
-        if (idleMinutes >= AUTO_LOCK_IDLE_MINUTES) {
+        if (idleMinutes >= idleLimitMinutes) {
           lockScreen();
         }
       }

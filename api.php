@@ -5389,6 +5389,47 @@ switch ($action) {
         ]);
         exit;
 
+    // AUTO SCREEN LOCK SETTINGS (OTOMATİK EKRAN KİLİTLEME)
+    case 'get_screen_lock_settings':
+        $acc = get_active_account($pdo);
+        if (!$acc) {
+            echo json_encode(['success' => false, 'message' => 'Oturum açılmadı.']);
+            exit;
+        }
+        $stmt = $pdo->query("SELECT setting_key, setting_value FROM mail_settings WHERE setting_key IN ('auto_lock_enabled', 'auto_lock_minutes')");
+        $sets = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        $auto_lock_enabled = isset($sets['auto_lock_enabled']) ? ($sets['auto_lock_enabled'] === '1' || $sets['auto_lock_enabled'] === 'true' || $sets['auto_lock_enabled'] === 1) : true;
+        $auto_lock_minutes = isset($sets['auto_lock_minutes']) ? max(1, min(480, (int)$sets['auto_lock_minutes'])) : 15;
+        echo json_encode([
+            'success' => true,
+            'auto_lock_enabled' => $auto_lock_enabled,
+            'auto_lock_minutes' => $auto_lock_minutes
+        ]);
+        exit;
+
+    case 'save_screen_lock_settings':
+        $acc = get_active_account($pdo);
+        if (!$acc) {
+            echo json_encode(['success' => false, 'message' => 'Oturum açılmadı.']);
+            exit;
+        }
+        $auto_lock_enabled = isset($_POST['auto_lock_enabled']) ? (($_POST['auto_lock_enabled'] === '1' || $_POST['auto_lock_enabled'] === 'true' || $_POST['auto_lock_enabled'] === 1 || $_POST['auto_lock_enabled'] === true) ? '1' : '0') : '1';
+        $auto_lock_minutes = max(1, min(480, (int)($_POST['auto_lock_minutes'] ?? 15)));
+
+        $stmt = $pdo->prepare("INSERT INTO mail_settings (setting_key, setting_value) VALUES ('auto_lock_enabled', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt->execute([$auto_lock_enabled, $auto_lock_enabled]);
+
+        $stmt2 = $pdo->prepare("INSERT INTO mail_settings (setting_key, setting_value) VALUES ('auto_lock_minutes', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt2->execute([(string)$auto_lock_minutes, (string)$auto_lock_minutes]);
+
+        echo json_encode([
+            'success' => true,
+            'auto_lock_enabled' => ($auto_lock_enabled === '1'),
+            'auto_lock_minutes' => $auto_lock_minutes,
+            'message' => 'Otomatik ekran kilitleme ayarları başarıyla kaydedildi.'
+        ]);
+        exit;
+
 
     // FOLDERS & MOVING
     case 'get_folders':
