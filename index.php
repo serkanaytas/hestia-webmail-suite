@@ -2282,6 +2282,57 @@ if ($active_account) {
               </div>
             </div>
           </div>
+
+          <!-- Auto Screen Lock Policy Card -->
+          <div class="card" style="width:100%;max-width:100%;box-sizing:border-box;border-radius:0 !important;padding:1.5rem;margin-top:1.5rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border-color);">
+              <div>
+                <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.5rem;" data-i18n="settings_auto_lock_title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary, #4f46e5);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span>Otomatik Ekran Kilitleme (Güvenlik)</span>
+                </h3>
+                <p style="color:var(--text-muted);font-size:0.85rem;" data-i18n="settings_auto_lock_sub">Belirlenen süre boyunca işlem yapılmadığında oturumu şifreli kilit ekranına alır. İsterseniz kapatabilirsiniz.</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <button type="button" class="btn-secondary" onclick="lockScreen()" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 1.15rem;font-size:0.85rem;border-radius:0 !important;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span>Şimdi Kilitle</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:1.25rem;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);">
+                <div>
+                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.25rem;">Otomatik Ekran Kilitlemeyi Aç</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Açık olduğunda hareketsiz kalındığında ekran otomatik kilitlenir. Kapatırsanız yalnızca manuel kilitlediğinizde kilitlenir.</div>
+                </div>
+                <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;margin-left:1rem;">
+                  <input type="checkbox" id="setting-auto-lock-enabled" <?= ($auto_lock_enabled) ? 'checked' : '' ?> onchange="saveScreenLockSettings(true)" style="opacity:0;width:0;height:0;">
+                  <span class="custom-toggle-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#475569;transition:.3s;border-radius:24px;"></span>
+                </label>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);">
+                <div>
+                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.25rem;">Hareketsizlik Süresi (Varsayılan: 15 Dakika)</div>
+                  <div style="font-size:0.8rem;color:var(--text-muted);">Bu dakika boyunca fare veya klavye hareketi olmazsa ekran kilitlenir (1 - 480 dakika).</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;margin-left:1rem;">
+                  <input type="number" id="setting-auto-lock-minutes" class="form-control" min="1" max="480" value="<?= htmlspecialchars((string)$auto_lock_minutes) ?>" style="width:85px;text-align:center;height:38px;border-radius:0 !important;font-weight:700;font-size:0.95rem;" onchange="saveScreenLockSettings(true)">
+                  <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">dakika</span>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.8rem;color:var(--text-muted);padding:0 0.25rem;flex-wrap:wrap;gap:0.5rem;">
+                <span id="screen-lock-status-info">Durum: <?= ($auto_lock_enabled) ? 'Otomatik kilitleme aktif (' . (int)$auto_lock_minutes . ' dakika)' : 'Otomatik kilitleme kapalı' ?></span>
+                <button type="button" class="btn-primary" onclick="saveScreenLockSettings(true)" style="height:34px;padding:0 1.25rem;font-size:0.825rem;border-radius:0 !important;display:inline-flex;align-items:center;gap:6px;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span>Ayarları Kaydet</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Password Change Tab -->
@@ -2498,57 +2549,6 @@ if ($active_account) {
               <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.8rem;color:var(--text-muted);padding:0 0.25rem;flex-wrap:wrap;gap:0.5rem;">
                 <span id="spam-clean-status-info">Durum: <?= ($auto_clean_spam) ? 'Otomatik temizleme aktif (' . (int)$spam_retention_days . ' gün)' : 'Otomatik temizleme kapalı' ?></span>
                 <button type="button" class="btn-primary" onclick="saveSpamRetentionSettings(true)" style="height:34px;padding:0 1.25rem;font-size:0.825rem;border-radius:0 !important;display:inline-flex;align-items:center;gap:6px;">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  <span>Ayarları Kaydet</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Auto Screen Lock Policy Card -->
-          <div class="card" style="width:100%;max-width:100%;box-sizing:border-box;border-radius:0 !important;padding:1.5rem;margin-top:1.5rem;">
-            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border-color);">
-              <div>
-                <h3 style="font-size:1.15rem;font-weight:700;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.5rem;" data-i18n="settings_auto_lock_title">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary, #4f46e5);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <span>Otomatik Ekran Kilitleme (Güvenlik)</span>
-                </h3>
-                <p style="color:var(--text-muted);font-size:0.85rem;" data-i18n="settings_auto_lock_sub">Belirlenen süre boyunca işlem yapılmadığında oturumu şifreli kilit ekranına alır. İsterseniz kapatabilirsiniz.</p>
-              </div>
-              <div style="display:flex;align-items:center;gap:0.5rem;">
-                <button type="button" class="btn-secondary" onclick="lockScreen()" style="display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 1.15rem;font-size:0.85rem;border-radius:0 !important;">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <span>Şimdi Kilitle</span>
-                </button>
-              </div>
-            </div>
-
-            <div style="display:flex;flex-direction:column;gap:1.25rem;">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);">
-                <div>
-                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.25rem;">Otomatik Ekran Kilitlemeyi Aç</div>
-                  <div style="font-size:0.8rem;color:var(--text-muted);">Açık olduğunda hareketsiz kalındığında ekran otomatik kilitlenir. Kapatırsanız yalnızca manuel kilitlediğinizde kilitlenir.</div>
-                </div>
-                <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;margin-left:1rem;">
-                  <input type="checkbox" id="setting-auto-lock-enabled" <?= ($auto_lock_enabled) ? 'checked' : '' ?> onchange="saveScreenLockSettings(true)" style="opacity:0;width:0;height:0;">
-                  <span class="custom-toggle-slider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#475569;transition:.3s;border-radius:24px;"></span>
-                </label>
-              </div>
-
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);">
-                <div>
-                  <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.25rem;">Hareketsizlik Süresi (Varsayılan: 15 Dakika)</div>
-                  <div style="font-size:0.8rem;color:var(--text-muted);">Bu dakika boyunca fare veya klavye hareketi olmazsa ekran kilitlenir (1 - 480 dakika).</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;margin-left:1rem;">
-                  <input type="number" id="setting-auto-lock-minutes" class="form-control" min="1" max="480" value="<?= htmlspecialchars((string)$auto_lock_minutes) ?>" style="width:85px;text-align:center;height:38px;border-radius:0 !important;font-weight:700;font-size:0.95rem;" onchange="saveScreenLockSettings(true)">
-                  <span style="font-size:0.85rem;color:var(--text-muted);font-weight:600;">dakika</span>
-                </div>
-              </div>
-
-              <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.8rem;color:var(--text-muted);padding:0 0.25rem;flex-wrap:wrap;gap:0.5rem;">
-                <span id="screen-lock-status-info">Durum: <?= ($auto_lock_enabled) ? 'Otomatik kilitleme aktif (' . (int)$auto_lock_minutes . ' dakika)' : 'Otomatik kilitleme kapalı' ?></span>
-                <button type="button" class="btn-primary" onclick="saveScreenLockSettings(true)" style="height:34px;padding:0 1.25rem;font-size:0.825rem;border-radius:0 !important;display:inline-flex;align-items:center;gap:6px;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                   <span>Ayarları Kaydet</span>
                 </button>
