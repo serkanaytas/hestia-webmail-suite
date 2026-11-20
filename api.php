@@ -735,11 +735,13 @@ function read_tail_lines_from_file($path, $limit = 300) {
 
     if (stripos(PHP_OS, 'WIN') !== 0 && function_exists('exec')) {
         $escapedPath = escapeshellarg($path);
-        $out = [];
-        $ret = 1;
-        @exec("sudo -n tail -n {$limit} {$escapedPath} 2>/dev/null", $out, $ret);
-        if ($ret === 0 && !empty($out)) {
-            return [true, $out, 'sudo_tail'];
+        foreach (['/usr/bin/tail', 'tail'] as $tailBin) {
+            $out = [];
+            $ret = 1;
+            @exec("sudo -n {$tailBin} -n {$limit} {$escapedPath} 2>/dev/null", $out, $ret);
+            if ($ret === 0 && !empty($out)) {
+                return [true, $out, 'sudo_tail'];
+            }
         }
     }
 
@@ -9046,6 +9048,15 @@ switch ($action) {
             return true;
         }));
 
+        $phpUser = '';
+        if (function_exists('posix_geteuid') && function_exists('posix_getpwuid')) {
+            $pw = @posix_getpwuid(@posix_geteuid());
+            if (!empty($pw['name'])) $phpUser = $pw['name'];
+        }
+        if ($phpUser === '') {
+            $phpUser = get_current_user() ?: 'www-data';
+        }
+
         echo safe_json_encode([
             'success' => true,
             'active_source' => $activeSource,
@@ -9053,6 +9064,7 @@ switch ($action) {
             'detected_path' => $detectedPath,
             'custom_log_path' => $customLogPath,
             'read_method' => $readMethod,
+            'php_user' => $phpUser,
             'is_windows' => (stripos(PHP_OS, 'WIN') === 0),
             'counts' => $counts,
             'logs' => $filtered

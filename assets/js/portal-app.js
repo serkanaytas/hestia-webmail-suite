@@ -12000,10 +12000,12 @@ function loadAdminMailLogs() {
 
       if (noticeEl) {
         if (!res.server_available && (source === 'server' || res.active_source === 'smtp_app')) {
+          const phpUser = res.php_user || 'www-data';
+          const sudoCmd = `echo '${phpUser} ALL=(ALL) NOPASSWD: /usr/bin/tail -n * /var/log/exim4/*, /usr/bin/tail -n * /var/log/mail*' | sudo tee /etc/sudoers.d/hestia-webmail-logs && sudo chmod 440 /etc/sudoers.d/hestia-webmail-logs`;
           noticeEl.style.display = 'block';
           noticeEl.innerHTML = res.is_windows
             ? `<strong>Bilgi (Yerel Geliştirme Ortamı):</strong> Windows üzerinde Linux sunucu mail logları (<code>/var/log/exim4/mainlog</code>) bulunmadığından <strong>Webmail Uygulama SMTP Logları</strong> gösterilmektedir. HestiaCP Linux sunucusunda tüm gelen/giden sunucu trafiği otomatik olarak listelenir.`
-            : `<strong>Sunucu Mail Loguna Erişilemedi:</strong> <code>/var/log/exim4/mainlog</code> veya <code>/var/log/mail.log</code> okunamadı. HestiaCP sunucunuzda tüm gelen/giden trafiği okumak için SSH üzerinden <code>sudo usermod -aG adm www-data</code> (veya PHP kullanıcısı) komutunu çalıştırıp web servisini yeniden başlatın ya da <strong>⚙️ Log Yolu</strong> bölümünden okunabilir bir yol tanımlayın. Şu anda Webmail üzerinden gönderilen SMTP logları gösterilmektedir.`;
+            : `<strong>Sunucu Mail Loguna Erişilemedi:</strong> <code>/var/log/exim4/mainlog</code> okunamadı (HestiaCP'de <code>open_basedir</code> ve dosya izni nedeniyle). Tüm gelen/giden Exim4 trafiğini anında açmak için sunucu SSH terminalinde şu komutu çalıştırın:<br><code style="display:block;margin-top:0.45rem;padding:0.45rem 0.65rem;background:#0f172a;color:#e2e8f0;font-size:0.75rem;user-select:all;">${escapeHtml(sudoCmd)}</code>`;
         } else {
           noticeEl.style.display = 'none';
         }
