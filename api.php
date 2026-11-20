@@ -1936,6 +1936,78 @@ function parse_recipient_summary($to_raw) {
     ];
 }
 
+// Helper: Extract subject, from, to, date, and flags from overview with imap_headerinfo & raw header fallback
+function extract_message_list_meta($conn, $mno, $ov = null) {
+    $uid = ($ov && !empty($ov->uid)) ? $ov->uid : @imap_uid($conn, $mno);
+    $subject_raw = ($ov && !empty($ov->subject)) ? $ov->subject : '';
+    $from_raw = ($ov && !empty($ov->from)) ? $ov->from : '';
+    $to_raw = ($ov && !empty($ov->to)) ? $ov->to : '';
+    $date_raw = ($ov && !empty($ov->date)) ? $ov->date : '';
+    $udate_raw = ($ov && !empty($ov->udate)) ? (int)$ov->udate : 0;
+    $is_seen = $ov ? !empty($ov->seen) : false;
+    $is_flagged = $ov ? !empty($ov->flagged) : false;
+
+    // If overview is missing or incomplete (common with malformed ENVELOPE headers), fallback to imap_headerinfo
+    if (!$ov || ($from_raw === '' && $subject_raw === '') || $date_raw === '') {
+        $hdr = @imap_headerinfo($conn, $mno);
+        if ($hdr) {
+            if ($subject_raw === '' && !empty($hdr->subject)) {
+                $subject_raw = $hdr->subject;
+            }
+            if ($from_raw === '' && !empty($hdr->fromaddress)) {
+                $from_raw = $hdr->fromaddress;
+            }
+            if ($to_raw === '' && !empty($hdr->toaddress)) {
+                $to_raw = $hdr->toaddress;
+            }
+            if ($date_raw === '' && !empty($hdr->date)) {
+                $date_raw = $hdr->date;
+            }
+            if ($udate_raw <= 0 && !empty($hdr->udate)) {
+                $udate_raw = (int)$hdr->udate;
+            }
+            if (!$ov) {
+                $is_seen = empty($hdr->Unseen);
+                $is_flagged = !empty($hdr->Flagged);
+            }
+        }
+    }
+
+    // Final fallback: parse raw RFC822 headers if still missing from/subject/date
+    if ($from_raw === '' || $subject_raw === '' || $date_raw === '') {
+        $raw_hdr = @imap_fetchheader($conn, $mno) ?: '';
+        if ($raw_hdr !== '') {
+            if ($subject_raw === '' && preg_match('/^Subject:\s*(.+?)(?=\r?\n[^\s]|\z)/mis', $raw_hdr, $m)) {
+                $subject_raw = preg_replace('/\r?\n\s+/', ' ', trim($m[1]));
+            }
+            if ($from_raw === '' && preg_match('/^From:\s*(.+?)(?=\r?\n[^\s]|\z)/mis', $raw_hdr, $m)) {
+                $from_raw = preg_replace('/\r?\n\s+/', ' ', trim($m[1]));
+            }
+            if ($to_raw === '' && preg_match('/^To:\s*(.+?)(?=\r?\n[^\s]|\z)/mis', $raw_hdr, $m)) {
+                $to_raw = preg_replace('/\r?\n\s+/', ' ', trim($m[1]));
+            }
+            if ($date_raw === '' && preg_match('/^Date:\s*(.+?)(?=\r?\n[^\s]|\z)/mis', $raw_hdr, $m)) {
+                $date_raw = preg_replace('/\r?\n\s+/', ' ', trim($m[1]));
+            }
+        }
+    }
+
+    $subject = ($subject_raw !== '') ? decode_mime($subject_raw) : '(Konusuz)';
+    $from = ($from_raw !== '') ? parse_address(decode_mime($from_raw)) : ['name' => 'Bilinmeyen', 'email' => ''];
+    $to = ($to_raw !== '') ? parse_recipient_summary($to_raw) : ['name' => '', 'email' => '', 'raw' => ''];
+    $timestamp = parse_email_timestamp($date_raw, $udate_raw);
+
+    return [
+        'uid' => $uid,
+        'subject' => $subject,
+        'from' => $from,
+        'to' => $to,
+        'timestamp' => $timestamp,
+        'is_seen' => $is_seen,
+        'is_flagged' => $is_flagged,
+    ];
+}
+
 // Helper: Robustly parse email date from Date: header, falling back to udate only if missing or unparseable
 function parse_email_timestamp($date_str, $fallback_udate = 0) {
     if (!empty($date_str)) {
@@ -2499,21 +2571,21 @@ switch ($action) {
                             }
                             if ($has_attachment && !$has_att) continue;
 
-                            $timestamp = parse_email_timestamp($ov->date ?? '', $ov->udate ?? 0);
+                            $meta = extract_message_list_meta($conn, $mno, $ov);
                             $is_t_sent = (stripos($tFolder, 'sent') !== false || mb_stripos($tFolder, 'gönderilen', 0, 'UTF-8') !== false);
                             $allCollected[] = [
                                 'folder' => $tFolder,
                                 'folder_tag' => ($tFolder === 'INBOX' ? 'Gelen' : ($tFolder === 'Sent' ? 'Giden' : ($tFolder === 'Trash' ? 'Çöp' : ($tFolder === 'Drafts' ? 'Taslak' : $tFolder)))),
-                                'uid' => $ov->uid,
+                                'uid' => $meta['uid'],
                                 'msg_no' => $mno,
-                                'subject' => ($ov && !empty($ov->subject)) ? decode_mime($ov->subject) : '(Konusuz)',
-                                'from' => ($ov && !empty($ov->from)) ? parse_address(decode_mime($ov->from)) : ['name' => 'Bilinmeyen', 'email' => ''],
-                                'to' => ($ov && !empty($ov->to)) ? parse_recipient_summary($ov->to) : ['name' => '', 'email' => '', 'raw' => ''],
+                                'subject' => $meta['subject'],
+                                'from' => $meta['from'],
+                                'to' => $meta['to'],
                                 'is_sent' => $is_t_sent,
-                                'date' => format_email_date($timestamp),
-                                'timestamp' => $timestamp,
-                                'is_seen' => !empty($ov->seen),
-                                'is_flagged' => !empty($ov->flagged),
+                                'date' => format_email_date($meta['timestamp']),
+                                'timestamp' => $meta['timestamp'],
+                                'is_seen' => $meta['is_seen'],
+                                'is_flagged' => $meta['is_flagged'],
                                 'has_attachment' => $has_att
                             ];
                         }
@@ -2789,11 +2861,12 @@ switch ($action) {
 
         foreach ($page_nums as $mno) {
             $ov = $ov_map[$mno] ?? null;
-            $uid = $ov ? $ov->uid : @imap_uid($conn, $mno);
-            $subject = ($ov && !empty($ov->subject)) ? decode_mime($ov->subject) : '(Konusuz)';
-            $from = ($ov && !empty($ov->from)) ? parse_address(decode_mime($ov->from)) : ['name' => 'Bilinmeyen', 'email' => ''];
-            $to = ($ov && !empty($ov->to)) ? parse_recipient_summary($ov->to) : ['name' => '', 'email' => '', 'raw' => ''];
-            $timestamp = parse_email_timestamp($ov->date ?? '', $ov->udate ?? 0);
+            $meta = extract_message_list_meta($conn, $mno, $ov);
+            $uid = $meta['uid'];
+            $subject = $meta['subject'];
+            $from = $meta['from'];
+            $to = $meta['to'];
+            $timestamp = $meta['timestamp'];
 
             // Attachment check (cached by UID)
             $uid_key = (int)$uid;
@@ -2829,8 +2902,8 @@ switch ($action) {
                 'is_sent' => $is_sent_folder,
                 'date' => format_email_date($timestamp),
                 'timestamp' => $timestamp,
-                'is_seen' => !empty($ov->seen),
-                'is_flagged' => !empty($ov->flagged),
+                'is_seen' => $meta['is_seen'],
+                'is_flagged' => $meta['is_flagged'],
                 'has_attachment' => $has_attachment_mail
             ];
         }
