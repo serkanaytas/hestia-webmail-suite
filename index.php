@@ -2979,6 +2979,18 @@ if ($active_account) {
           </div>
         </div>
 
+        <!-- Admin Sub-Tabs -->
+        <div class="settings-tabs" style="margin-bottom:1.25rem;">
+          <button type="button" class="settings-tab-btn active" id="admin-tab-btn-accounts" onclick="switchAdminSubTab('accounts', this)">
+            👥 Kurumsal Hesaplar
+          </button>
+          <button type="button" class="settings-tab-btn" id="admin-tab-btn-logs" onclick="switchAdminSubTab('logs', this)">
+            📊 SMTP & Mail Trafik Logları
+          </button>
+        </div>
+
+        <!-- SUBTAB 1: ACCOUNTS TABLE -->
+        <div id="admin-subtab-accounts">
         <!-- Main Table Card -->
         <div class="card" style="width:100%;max-width:100%;box-sizing:border-box;border-radius:0 !important;background:var(--bg-surface);border:1px solid var(--border-color);padding:1.5rem;">
           
@@ -3017,12 +3029,114 @@ if ($active_account) {
           </div>
 
         </div>
+        </div>
+
+        <!-- SUBTAB 2: SMTP & MAIL TRAFFIC LOGS -->
+        <div id="admin-subtab-logs" style="display:none;">
+          <div class="card" style="width:100%;max-width:100%;box-sizing:border-box;border-radius:0 !important;background:var(--bg-surface);border:1px solid var(--border-color);padding:1.5rem;">
+            <!-- Header & Controls -->
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.15rem;padding-bottom:1rem;border-bottom:1px solid var(--border-color);">
+              <div>
+                <h3 style="margin:0;font-size:1.15rem;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:0.5rem;">
+                  <span>📊</span>
+                  <span>SMTP & Mail Trafik Logları (Gelen / Giden / Reddedilen)</span>
+                </h3>
+                <div id="admin-log-source-badge" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.25rem;">
+                  Kaynak kontrol ediliyor...
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <select id="admin-log-source-select" class="form-control" onchange="loadAdminMailLogs()" style="height:36px;font-size:0.82rem;border-radius:0 !important;width:auto;min-width:205px;">
+                  <option value="auto">Otomatik (Sunucu Logu / SMTP)</option>
+                  <option value="server">Sunucu Mail Logu (Exim4 / Postfix)</option>
+                  <option value="smtp_app">Webmail SMTP Gönderim Logları</option>
+                </select>
+                <select id="admin-log-limit-select" class="form-control" onchange="loadAdminMailLogs()" style="height:36px;font-size:0.82rem;border-radius:0 !important;width:auto;">
+                  <option value="200">Son 200 kayıt</option>
+                  <option value="500" selected>Son 500 kayıt</option>
+                  <option value="1000">Son 1000 kayıt</option>
+                </select>
+                <button type="button" class="btn btn-secondary" onclick="toggleAdminLogPathBar()" style="height:36px;padding:0 0.85rem;font-size:0.82rem;border-radius:0 !important;background:var(--bg-surface-elevated);border:1px solid var(--border-color);color:var(--text-primary);cursor:pointer;">
+                  ⚙️ Log Yolu
+                </button>
+                <button type="button" class="btn btn-primary" onclick="loadAdminMailLogs()" style="height:36px;padding:0 1rem;font-size:0.82rem;border-radius:0 !important;background:var(--primary);color:#fff;border:none;cursor:pointer;font-weight:600;">
+                  🔄 Yenile
+                </button>
+              </div>
+            </div>
+
+            <!-- Optional Custom Server Log Path Bar -->
+            <div id="admin-log-path-bar" style="display:none;margin-bottom:1rem;padding:0.85rem 1rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);">
+              <div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">
+                <label style="font-size:0.8rem;font-weight:600;color:var(--text-primary);white-space:nowrap;">Özel Sunucu Log Dosyası:</label>
+                <input type="text" id="admin-custom-log-path" class="form-control" placeholder="/var/log/exim4/mainlog (Boş bırakılırsa otomatik taranır)" style="flex:1;min-width:240px;height:34px;font-size:0.82rem;border-radius:0 !important;">
+                <button type="button" class="btn btn-primary" onclick="saveAdminCustomLogPath()" style="height:34px;padding:0 1rem;font-size:0.82rem;border-radius:0 !important;background:var(--primary);color:#fff;border:none;cursor:pointer;">Kaydet & Oku</button>
+              </div>
+            </div>
+
+            <!-- Server Log Notice (if server log unreadable) -->
+            <div id="admin-server-log-notice" style="display:none;margin-bottom:1rem;padding:0.8rem 1rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);font-size:0.8rem;color:var(--text-primary);line-height:1.5;">
+            </div>
+
+            <!-- Search & Status Filter Toolbar -->
+            <div class="admin-actions-bar" style="margin-bottom:1rem;">
+              <div class="admin-search-wrapper">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="admin-log-search-input" placeholder="Gönderen, alıcı, konu, Queue ID veya hata kodu (550, 535) ara..." oninput="debounceAdminLogSearch()">
+              </div>
+
+              <div class="admin-filter-group" style="flex-wrap:wrap;">
+                <button type="button" class="admin-filter-btn active" id="admin-log-filter-all" onclick="filterAdminMailLogStatus('all', this)">Tümü (<span id="log-cnt-all">0</span>)</button>
+                <button type="button" class="admin-filter-btn" id="admin-log-filter-sent" onclick="filterAdminMailLogStatus('sent', this)" style="color:var(--success);">✓ Gönderildi (<span id="log-cnt-sent">0</span>)</button>
+                <button type="button" class="admin-filter-btn" id="admin-log-filter-incoming" onclick="filterAdminMailLogStatus('incoming', this)" style="color:var(--primary);">↓ Gelen (<span id="log-cnt-incoming">0</span>)</button>
+                <button type="button" class="admin-filter-btn" id="admin-log-filter-rejected" onclick="filterAdminMailLogStatus('rejected', this)" style="color:var(--danger);">✕ Reddedildi (<span id="log-cnt-rejected">0</span>)</button>
+                <button type="button" class="admin-filter-btn" id="admin-log-filter-deferred" onclick="filterAdminMailLogStatus('deferred', this)" style="color:#f59e0b;">⏳ Ertelendi (<span id="log-cnt-deferred">0</span>)</button>
+              </div>
+            </div>
+
+            <!-- Logs Table -->
+            <div style="overflow-x:auto;">
+              <table class="lang-manager-table" style="width:100%;">
+                <thead>
+                  <tr>
+                    <th style="width:155px;">Tarih / Saat</th>
+                    <th style="width:140px;">Durum / Yön</th>
+                    <th style="width:190px;">Gönderen</th>
+                    <th style="width:190px;">Alıcı</th>
+                    <th style="width:200px;">Konu</th>
+                    <th>Sunucu Yanıtı / Detay</th>
+                    <th style="width:85px;text-align:right;">Kayıt</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-mail-logs-tbody">
+                  <tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted);">Loglar yükleniyor...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
       <?php endif; ?>
     </main>
   </div>
 
   <?php if (!empty($active_account->is_admin)): ?>
+  <!-- ADMIN: MAIL LOG DETAIL MODAL -->
+  <div id="admin-log-detail-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:999999;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
+    <div style="background:var(--bg-surface);width:760px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;border:1px solid var(--border-color);box-shadow:var(--shadow-xl);padding:1.5rem;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid var(--border-color);">
+        <div>
+          <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:var(--text-primary);">SMTP / Sunucu Log Detayı</h3>
+          <div id="admin-log-detail-meta" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.2rem;"></div>
+        </div>
+        <button type="button" class="btn-icon" onclick="closeAdminLogDetailModal()" style="border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:1.4rem;line-height:1;">&times;</button>
+      </div>
+      <div id="admin-log-detail-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.65rem;margin-bottom:1rem;font-size:0.8rem;"></div>
+      <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.4rem;">Ham Sunucu / SMTP İletişim Çıktısı</div>
+      <pre id="admin-log-detail-raw" style="flex:1;overflow:auto;margin:0;padding:1rem;background:#0f172a;color:#e2e8f0;font-family:Consolas,Monaco,monospace;font-size:0.78rem;line-height:1.5;border:1px solid var(--border-color);white-space:pre-wrap;word-break:break-word;max-height:380px;"></pre>
+    </div>
+  </div>
+
   <!-- ADMIN: CREATE EMAIL ACCOUNT MODAL -->
   <div id="admin-create-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:999999;align-items:center;justify-content:center;backdrop-filter:blur(3px);">
     <div style="background:var(--bg-surface);width:520px;max-width:92vw;border:1px solid var(--border-color);box-shadow:var(--shadow-xl);padding:1.75rem;box-sizing:border-box;">

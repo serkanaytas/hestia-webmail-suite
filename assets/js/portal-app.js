@@ -11880,6 +11880,220 @@ function syncHestiaAccounts() {
 }
 
 // ==========================================
+// ADMIN: SMTP & SERVER MAIL TRAFFIC LOGS
+// ==========================================
+let adminMailLogsCache = [];
+let adminMailLogStatusFilter = 'all';
+let adminMailLogSearchTimer = null;
+
+function switchAdminSubTab(tab, btn) {
+  const accPane = document.getElementById('admin-subtab-accounts');
+  const logPane = document.getElementById('admin-subtab-logs');
+  const btnAcc = document.getElementById('admin-tab-btn-accounts');
+  const btnLog = document.getElementById('admin-tab-btn-logs');
+
+  if (btnAcc) btnAcc.classList.toggle('active', tab === 'accounts');
+  if (btnLog) btnLog.classList.toggle('active', tab === 'logs');
+  if (btn) btn.classList.add('active');
+
+  if (tab === 'logs') {
+    if (accPane) accPane.style.display = 'none';
+    if (logPane) logPane.style.display = 'block';
+    loadAdminMailLogs();
+  } else {
+    if (logPane) logPane.style.display = 'none';
+    if (accPane) accPane.style.display = 'block';
+  }
+}
+
+function toggleAdminLogPathBar() {
+  const bar = document.getElementById('admin-log-path-bar');
+  if (!bar) return;
+  bar.style.display = (bar.style.display === 'none' || !bar.style.display) ? 'block' : 'none';
+}
+
+function saveAdminCustomLogPath() {
+  const inp = document.getElementById('admin-custom-log-path');
+  const logPath = inp ? inp.value.trim() : '';
+  const fd = new FormData();
+  fd.append('log_path', logPath);
+
+  fetch('api.php?action=admin_save_mail_log_path', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        showToast(res.message || 'Log yolu kaydedildi.', 'success');
+        loadAdminMailLogs();
+      } else {
+        showToast(res.message || 'Kaydedilemedi.', 'error');
+      }
+    })
+    .catch(err => showToast('Bağlantı hatası: ' + err.message, 'error'));
+}
+
+function filterAdminMailLogStatus(status, btn) {
+  adminMailLogStatusFilter = status || 'all';
+  document.querySelectorAll('#admin-subtab-logs .admin-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadAdminMailLogs();
+}
+
+function debounceAdminLogSearch() {
+  clearTimeout(adminMailLogSearchTimer);
+  adminMailLogSearchTimer = setTimeout(() => {
+    loadAdminMailLogs();
+  }, 300);
+}
+
+function loadAdminMailLogs() {
+  const tbody = document.getElementById('admin-mail-logs-tbody');
+  const sourceSel = document.getElementById('admin-log-source-select');
+  const limitSel = document.getElementById('admin-log-limit-select');
+  const searchInp = document.getElementById('admin-log-search-input');
+  const badgeEl = document.getElementById('admin-log-source-badge');
+  const noticeEl = document.getElementById('admin-server-log-notice');
+  const pathInp = document.getElementById('admin-custom-log-path');
+
+  const source = sourceSel ? sourceSel.value : 'auto';
+  const limit = limitSel ? limitSel.value : '500';
+  const search = searchInp ? searchInp.value.trim() : '';
+
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">Log kayıtları okunuyor...</td></tr>';
+  }
+
+  const qs = new URLSearchParams({
+    action: 'admin_get_mail_logs',
+    source: source,
+    status: adminMailLogStatusFilter,
+    limit: limit,
+    search: search
+  });
+
+  fetch('api.php?' + qs.toString())
+    .then(r => r.json())
+    .then(res => {
+      if (!res || !res.success) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--danger);">${escapeHtml((res && res.message) || 'Loglar okunamadı.')}</td></tr>`;
+        return;
+      }
+
+      if (pathInp && typeof res.custom_log_path === 'string' && !pathInp.value) {
+        pathInp.value = res.custom_log_path;
+      }
+
+      const counts = res.counts || {};
+      const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? 0; };
+      setTxt('log-cnt-all', counts.all);
+      setTxt('log-cnt-sent', counts.sent);
+      setTxt('log-cnt-incoming', counts.incoming);
+      setTxt('log-cnt-rejected', counts.rejected);
+      setTxt('log-cnt-deferred', counts.deferred);
+
+      if (badgeEl) {
+        if (res.active_source === 'server') {
+          badgeEl.innerHTML = `Aktif Kaynak: <strong style="color:var(--success);">Sunucu Mail Logu</strong> (<code>${escapeHtml(res.detected_path)}</code> • ${escapeHtml(res.read_method === 'sudo_tail' ? 'sudo tail' : 'doğrudan okuma')})`;
+        } else {
+          badgeEl.innerHTML = `Aktif Kaynak: <strong style="color:var(--primary);">Webmail Uygulama SMTP Logları</strong> (Gönderilen ve reddedilen tüm giden mailler)`;
+        }
+      }
+
+      if (noticeEl) {
+        if (!res.server_available && (source === 'server' || res.active_source === 'smtp_app')) {
+          noticeEl.style.display = 'block';
+          noticeEl.innerHTML = res.is_windows
+            ? `<strong>Bilgi (Yerel Geliştirme Ortamı):</strong> Windows üzerinde Linux sunucu mail logları (<code>/var/log/exim4/mainlog</code>) bulunmadığından <strong>Webmail Uygulama SMTP Logları</strong> gösterilmektedir. HestiaCP Linux sunucusunda tüm gelen/giden sunucu trafiği otomatik olarak listelenir.`
+            : `<strong>Sunucu Mail Loguna Erişilemedi:</strong> <code>/var/log/exim4/mainlog</code> veya <code>/var/log/mail.log</code> okunamadı. HestiaCP sunucunuzda tüm gelen/giden trafiği okumak için SSH üzerinden <code>sudo usermod -aG adm www-data</code> (veya PHP kullanıcısı) komutunu çalıştırıp web servisini yeniden başlatın ya da <strong>⚙️ Log Yolu</strong> bölümünden okunabilir bir yol tanımlayın. Şu anda Webmail üzerinden gönderilen SMTP logları gösterilmektedir.`;
+        } else {
+          noticeEl.style.display = 'none';
+        }
+      }
+
+      adminMailLogsCache = Array.isArray(res.logs) ? res.logs : [];
+      renderAdminMailLogsTable(adminMailLogsCache);
+    })
+    .catch(err => {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--danger);">Bağlantı hatası: ${escapeHtml(err.message)}</td></tr>`;
+    });
+}
+
+function renderAdminMailLogsTable(logs) {
+  const tbody = document.getElementById('admin-mail-logs-tbody');
+  if (!tbody) return;
+
+  if (!logs || logs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted);">Seçili filtreye uygun log kaydı bulunamadı.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = logs.map((log, idx) => {
+    let badgeStyle = 'background:var(--bg-hover);color:var(--text-secondary);border:1px solid var(--border-color);';
+    let statusIcon = '•';
+    if (log.status === 'sent') {
+      badgeStyle = 'background:rgba(16,185,129,0.12);color:var(--success,#10b981);border:1px solid rgba(16,185,129,0.3);';
+      statusIcon = '✓';
+    } else if (log.status === 'incoming') {
+      badgeStyle = 'background:rgba(79,70,229,0.12);color:var(--primary,#4f46e5);border:1px solid rgba(79,70,229,0.3);';
+      statusIcon = '↓';
+    } else if (log.status === 'rejected') {
+      badgeStyle = 'background:rgba(239,68,68,0.12);color:var(--danger,#ef4444);border:1px solid rgba(239,68,68,0.3);';
+      statusIcon = '✕';
+    } else if (log.status === 'deferred') {
+      badgeStyle = 'background:rgba(245,158,11,0.12);color:#d97706;border:1px solid rgba(245,158,11,0.3);';
+      statusIcon = '⏳';
+    }
+
+    const qidHtml = log.queue_id ? `<div style="font-size:0.7rem;color:var(--text-muted);font-family:monospace;margin-top:2px;">${escapeHtml(log.queue_id)}</div>` : '';
+    const detailText = log.detail || '-';
+    const detailShort = detailText.length > 110 ? detailText.substring(0, 110) + '...' : detailText;
+
+    return `
+      <tr>
+        <td style="font-size:0.78rem;white-space:nowrap;color:var(--text-secondary);">${escapeHtml(log.timestamp || '-')}${qidHtml}</td>
+        <td>
+          <span class="admin-badge" style="${badgeStyle}font-size:0.73rem;font-weight:600;padding:0.2rem 0.5rem;display:inline-flex;align-items:center;gap:4px;">
+            <span>${statusIcon}</span>
+            <span>${escapeHtml(log.direction || log.status)}</span>
+          </span>
+        </td>
+        <td style="font-size:0.8rem;word-break:break-word;">${escapeHtml(log.from || '-')}</td>
+        <td style="font-size:0.8rem;word-break:break-word;">${escapeHtml(log.to || '-')}</td>
+        <td style="font-size:0.8rem;word-break:break-word;font-weight:500;">${escapeHtml(log.subject || '-')}</td>
+        <td style="font-size:0.76rem;color:var(--text-secondary);word-break:break-word;" title="${escapeHtml(detailText)}">${escapeHtml(detailShort)}</td>
+        <td style="text-align:right;">
+          <button type="button" class="admin-table-action-btn" onclick="openAdminLogDetailModal(${idx})" title="Ham log / SMTP iletişim detayını gör">Detay</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openAdminLogDetailModal(idx) {
+  const log = adminMailLogsCache[idx];
+  if (!log) return;
+  const modal = document.getElementById('admin-log-detail-modal');
+  const metaEl = document.getElementById('admin-log-detail-meta');
+  const sumEl = document.getElementById('admin-log-detail-summary');
+  const rawEl = document.getElementById('admin-log-detail-raw');
+
+  if (metaEl) metaEl.textContent = `${log.timestamp || ''} • ${log.queue_id || ''} • ${log.direction || ''}`;
+  if (sumEl) {
+    sumEl.innerHTML = `
+      <div style="padding:0.6rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);"><strong>Gönderen:</strong><br>${escapeHtml(log.from || '-')}</div>
+      <div style="padding:0.6rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);"><strong>Alıcı:</strong><br>${escapeHtml(log.to || '-')}</div>
+      <div style="padding:0.6rem;background:var(--bg-surface-elevated);border:1px solid var(--border-color);"><strong>Konu:</strong><br>${escapeHtml(log.subject || '-')}</div>
+    `;
+  }
+  if (rawEl) rawEl.textContent = log.raw || log.detail || 'Ham kayıt bulunamadı.';
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeAdminLogDetailModal() {
+  const modal = document.getElementById('admin-log-detail-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// ==========================================
 // SCREEN LOCK (EKRAN KİLİTLEME) ENGINE
 // ==========================================
 let screenLockClockInterval = null;

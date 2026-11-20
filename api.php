@@ -643,6 +643,264 @@ function ensure_filters_tables($pdo) {
     }
 }
 
+// Helper: Ensure mail_smtp_logs table exists for recording outgoing SMTP send attempts
+function ensure_smtp_logs_table($pdo) {
+    static $checked = false;
+    if ($checked || is_schema_verified('smtp_logs_v1')) return;
+    $checked = true;
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `mail_smtp_logs` (
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `account_id` int(11) NOT NULL DEFAULT 0,
+              `sender_email` varchar(255) NOT NULL DEFAULT '',
+              `recipient_email` text DEFAULT NULL,
+              `cc_bcc` text DEFAULT NULL,
+              `subject` varchar(500) DEFAULT '',
+              `status` varchar(32) NOT NULL DEFAULT 'sent',
+              `smtp_host` varchar(255) DEFAULT '',
+              `smtp_port` int(11) DEFAULT 0,
+              `smtp_response` text DEFAULT NULL,
+              `smtp_transcript` mediumtext DEFAULT NULL,
+              `ip_address` varchar(64) DEFAULT '',
+              `created_at` datetime DEFAULT current_timestamp(),
+              PRIMARY KEY (`id`),
+              KEY `idx_smtp_status_date` (`status`, `created_at`),
+              KEY `idx_smtp_sender` (`sender_email`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+        mark_schema_verified('smtp_logs_v1');
+    } catch (Throwable $e) {}
+}
+
+function record_smtp_log($pdo, $acc, $recipients, $ccBcc, $subject, $status, $smtpResponse, $transcriptLines = []) {
+    try {
+        ensure_smtp_logs_table($pdo);
+        $transcript = '';
+        if (!empty($transcriptLines)) {
+            $transcript = implode("\n", array_slice($transcriptLines, -80));
+            if (strlen($transcript) > 16000) {
+                $transcript = substr($transcript, -16000);
+            }
+        }
+        $stmt = $pdo->prepare("
+            INSERT INTO mail_smtp_logs
+            (account_id, sender_email, recipient_email, cc_bcc, subject, status, smtp_host, smtp_port, smtp_response, smtp_transcript, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            (int)($acc->id ?? 0),
+            (string)($acc->email ?? ''),
+            mb_substr((string)$recipients, 0, 2000, 'UTF-8'),
+            mb_substr((string)$ccBcc, 0, 2000, 'UTF-8'),
+            mb_substr((string)$subject, 0, 490, 'UTF-8'),
+            $status,
+            (string)($acc->smtp_host ?? ''),
+            (int)($acc->smtp_port ?? 0),
+            mb_substr((string)$smtpResponse, 0, 2000, 'UTF-8'),
+            $transcript,
+            (string)($_SERVER['REMOTE_ADDR'] ?? '')
+        ]);
+    } catch (Throwable $e) {}
+}
+
+// Helper: Read tail lines from a server mail log file (direct read or sudo tail on Linux)
+function read_tail_lines_from_file($path, $limit = 300) {
+    $limit = max(50, min(2000, (int)$limit));
+    if (empty($path) || strpos($path, "\0") !== false) return [false, 'Geçersiz yol'];
+
+    if (@is_file($path) && @is_readable($path)) {
+        $lines = [];
+        $fp = @fopen($path, 'rb');
+        if ($fp) {
+            @fseek($fp, 0, SEEK_END);
+            $fileSize = @ftell($fp);
+            $chunkSize = min($fileSize, 524288);
+            if ($chunkSize > 0) {
+                @fseek($fp, -$chunkSize, SEEK_END);
+                $data = @fread($fp, $chunkSize);
+                if ($data !== false) {
+                    $all = preg_split("/\r\n|\n|\r/", $data);
+                    if ($fileSize > $chunkSize && count($all) > 1) {
+                        array_shift($all);
+                    }
+                    $all = array_values(array_filter($all, fn($l) => trim($l) !== ''));
+                    $lines = array_slice($all, -$limit);
+                }
+            }
+            @fclose($fp);
+            return [true, $lines, 'direct'];
+        }
+    }
+
+    if (stripos(PHP_OS, 'WIN') !== 0 && function_exists('exec')) {
+        $escapedPath = escapeshellarg($path);
+        $out = [];
+        $ret = 1;
+        @exec("sudo -n tail -n {$limit} {$escapedPath} 2>/dev/null", $out, $ret);
+        if ($ret === 0 && !empty($out)) {
+            return [true, $out, 'sudo_tail'];
+        }
+    }
+
+    return [false, 'Dosya okunamıyor veya mevcut değil'];
+}
+
+// Helper: Parse Exim4 (HestiaCP) & Postfix mail log lines into structured traffic entries
+function parse_server_mail_log_lines($lines) {
+    $queueSubjects = [];
+    $queueSenders = [];
+    $entries = [];
+
+    foreach ($lines as $line) {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+(?:\[\d+\]\s+)?([A-Za-z0-9]{6}-[A-Za-z0-9]{6,}-[A-Za-z0-9]{2,})\s+<=\s+(\S+)/', $line, $m)) {
+            $qid = $m[1];
+            $snd = trim($m[2], '<>');
+            if ($snd !== '') $queueSenders[$qid] = $snd;
+            if (preg_match('/\sT="((?:\\\\"|[^"])*)"/', $line, $tm)) {
+                $queueSubjects[$qid] = stripcslashes($tm[1]);
+            }
+        }
+    }
+
+    foreach ($lines as $line) {
+        $line = safe_utf8(trim($line));
+        if ($line === '') continue;
+
+        if (preg_match('/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(?:\[\d+\]\s+)?(.*)$/', $line, $m)) {
+            $ts = $m[1];
+            $rest = $m[2];
+            $qid = '';
+            $status = 'info';
+            $direction = 'Sistem';
+            $from = '';
+            $to = '';
+            $subject = '';
+            $detail = $rest;
+
+            if (preg_match('/^([A-Za-z0-9]{6}-[A-Za-z0-9]{6,}-[A-Za-z0-9]{2,})\s+(<=|=>|->|\*\*|==|\*>|Completed)\s*(.*)$/', $rest, $qm)) {
+                $qid = $qm[1];
+                $op = $qm[2];
+                $body = $qm[3];
+                $from = $queueSenders[$qid] ?? '';
+                $subject = $queueSubjects[$qid] ?? '';
+
+                if ($op === '<=') {
+                    $status = 'incoming';
+                    $direction = 'Gelen / Kuyruğa Alındı';
+                    if (preg_match('/^(\S+)/', $body, $fm)) {
+                        $from = trim($fm[1], '<>');
+                        if ($from === '') $from = '<> (Sistem / Bounce)';
+                    }
+                    if (preg_match('/\sT="((?:\\\\"|[^"])*)"/', $body, $tm)) {
+                        $subject = stripcslashes($tm[1]);
+                    }
+                    if (preg_match('/\sfor\s+(.+)$/', $body, $form)) {
+                        $to = trim($form[1]);
+                    }
+                    $detail = $body;
+                } elseif ($op === '=>' || $op === '->' || $op === '*>') {
+                    $status = 'sent';
+                    $direction = 'Gönderildi';
+                    if (preg_match('/^([^\s<]+@[^\s>]+|<[^>]+>|\S+)/', $body, $rm)) {
+                        $to = trim($rm[1], '<>');
+                    }
+                    if (preg_match('/\sC="([^"]+)"/', $body, $cm)) {
+                        $detail = $cm[1];
+                    } elseif (preg_match('/\sH=([^\s]+(?:\s+\[[^\]]+\])?)/', $body, $hm)) {
+                        $detail = 'Sunucu: ' . $hm[1];
+                    } else {
+                        $detail = $body;
+                    }
+                } elseif ($op === '**') {
+                    $status = 'rejected';
+                    $direction = 'Reddedildi / Hata';
+                    if (preg_match('/^([^\s:]+@[^\s:]+|<[^>]+>|\S+)/', $body, $rm)) {
+                        $to = trim($rm[1], '<>:');
+                    }
+                    $detail = $body;
+                } elseif ($op === '==') {
+                    $status = 'deferred';
+                    $direction = 'Ertelendi (Kuyrukta)';
+                    if (preg_match('/^([^\s:]+@[^\s:]+|<[^>]+>|\S+)/', $body, $rm)) {
+                        $to = trim($rm[1], '<>:');
+                    }
+                    $detail = $body;
+                } elseif ($op === 'Completed') {
+                    continue;
+                }
+            } else {
+                if (stripos($rest, 'rejected') !== false || stripos($rest, 'authenticator failed') !== false || stripos($rest, 'denied') !== false || stripos($rest, 'error') !== false) {
+                    $status = 'rejected';
+                    $direction = 'Reddedildi / Hata';
+                } elseif (stripos($rest, 'no host name') !== false || stripos($rest, 'warning') !== false) {
+                    $status = 'deferred';
+                    $direction = 'Uyarı';
+                }
+                if (preg_match('/F=<([^>]*)>/', $rest, $fm)) $from = $fm[1];
+                if (preg_match('/(?:RCPT|to)\s+<([^>]*)>/i', $rest, $rm)) $to = $rm[1];
+            }
+
+            $entries[] = [
+                'id' => md5($line),
+                'timestamp' => $ts,
+                'queue_id' => $qid,
+                'status' => $status,
+                'direction' => $direction,
+                'from' => $from,
+                'to' => $to,
+                'subject' => $subject,
+                'detail' => $detail,
+                'raw' => $line
+            ];
+            continue;
+        }
+
+        if (preg_match('/^([A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+\S+\s+([^:]+):\s+(.*)$/', $line, $pm)) {
+            $ts = $pm[1];
+            $proc = $pm[2];
+            $rest = $pm[3];
+            $qid = '';
+            $status = 'info';
+            $direction = $proc;
+            $from = '';
+            $to = '';
+            if (preg_match('/^([A-F0-9]{6,}):\s+(.*)$/i', $rest, $qm)) {
+                $qid = $qm[1];
+                $rest = $qm[2];
+            }
+            if (preg_match('/from=<([^>]*)>/', $rest, $fm)) $from = $fm[1];
+            if (preg_match('/to=<([^>]*)>/', $rest, $rm)) $to = $rm[1];
+            if (preg_match('/status=(\w+)/', $rest, $sm)) {
+                $st = strtolower($sm[1]);
+                if ($st === 'sent') { $status = 'sent'; $direction = 'Gönderildi'; }
+                elseif ($st === 'bounced' || $st === 'rejected') { $status = 'rejected'; $direction = 'Reddedildi / Hata'; }
+                elseif ($st === 'deferred') { $status = 'deferred'; $direction = 'Ertelendi'; }
+            } elseif (stripos($rest, 'reject') !== false || stripos($rest, 'authentication failed') !== false) {
+                $status = 'rejected';
+                $direction = 'Reddedildi / Hata';
+            } elseif ($from !== '' && $to === '') {
+                $status = 'incoming';
+                $direction = 'Gelen / Kuyruk';
+            }
+            $entries[] = [
+                'id' => md5($line),
+                'timestamp' => $ts,
+                'queue_id' => $qid,
+                'status' => $status,
+                'direction' => $direction,
+                'from' => $from,
+                'to' => $to,
+                'subject' => '',
+                'detail' => $rest,
+                'raw' => $line
+            ];
+        }
+    }
+
+    return array_reverse($entries);
+}
+
 // Helper: Ensure mail_imports table exists with all required columns
 function ensure_mail_imports_table($pdo) {
     static $checked = false;
@@ -3217,8 +3475,28 @@ switch ($action) {
         }
 
         $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        $smtp_debug_lines = [];
         try {
             $mail->isSMTP();
+            $mail->SMTPDebug = PHPMailer\PHPMailer\SMTP::DEBUG_SERVER;
+            $mail->Debugoutput = function($str, $level) use (&$smtp_debug_lines) {
+                static $maskNext = false;
+                $clean = trim((string)$str);
+                if ($clean === '') return;
+                if ($maskNext) {
+                    $smtp_debug_lines[] = 'CLIENT -> SERVER: [CREDENTIALS MASKED]';
+                    $maskNext = false;
+                    return;
+                }
+                if (stripos($clean, 'AUTH PLAIN') !== false) {
+                    $smtp_debug_lines[] = 'CLIENT -> SERVER: AUTH PLAIN [MASKED]';
+                    return;
+                }
+                if (stripos($clean, '334 UGFzc3dvcmQ6') !== false || stripos($clean, '334 VXNlcm5hbWU6') !== false) {
+                    $maskNext = true;
+                }
+                $smtp_debug_lines[] = $clean;
+            };
             $mail->Host = $acc->smtp_host;
             $mail->SMTPAuth = true;
             $mail->Username = $acc->smtp_username ?: $acc->email;
@@ -3368,6 +3646,17 @@ switch ($action) {
 
             $mail->send();
 
+            // Log successful SMTP delivery
+            $lastSmtpOk = '250 OK';
+            for ($idx = count($smtp_debug_lines) - 1; $idx >= 0; $idx--) {
+                if (stripos($smtp_debug_lines[$idx], 'SERVER -> CLIENT:') !== false && preg_match('/250\b/', $smtp_debug_lines[$idx])) {
+                    $lastSmtpOk = trim(str_replace('SERVER -> CLIENT:', '', $smtp_debug_lines[$idx]));
+                    break;
+                }
+            }
+            $ccBccCombined = trim(($cc ? 'CC: ' . $cc : '') . ($cc && $bcc ? ' | ' : '') . ($bcc ? 'BCC: ' . $bcc : ''));
+            record_smtp_log($pdo, $acc, $to, $ccBccCombined, $subject, 'sent', $lastSmtpOk, $smtp_debug_lines);
+
             // Automatically save outgoing recipients (To, CC, BCC) into address book if missing
             $outgoing_people = array_merge($to_list, $parse_addrs($cc), $parse_addrs($bcc));
             if (!empty($outgoing_people)) {
@@ -3401,7 +3690,10 @@ switch ($action) {
 
             echo json_encode(['success' => true, 'message' => 'E-posta başarıyla gönderildi!']);
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Gönderim hatası: ' . ($mail->ErrorInfo ?: $e->getMessage())]);
+            $errDetail = $mail->ErrorInfo ?: $e->getMessage();
+            $ccBccCombined = trim(($cc ? 'CC: ' . $cc : '') . ($cc && $bcc ? ' | ' : '') . ($bcc ? 'BCC: ' . $bcc : ''));
+            record_smtp_log($pdo, $acc, $to, $ccBccCombined, $subject, 'rejected', $errDetail, $smtp_debug_lines);
+            echo json_encode(['success' => false, 'message' => 'Gönderim hatası: ' . $errDetail]);
         }
         exit;
 
@@ -8642,6 +8934,129 @@ switch ($action) {
                 'message' => 'Ayarlar kaydedilemedi: ' . $e->getMessage()
             ]);
         }
+        exit;
+
+    case 'admin_save_mail_log_path':
+        require_admin($pdo);
+        $logPath = trim($_POST['log_path'] ?? '');
+        try {
+            $stmt = $pdo->prepare("INSERT INTO mail_settings (setting_key, setting_value) VALUES ('mail_log_path', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            $stmt->execute([$logPath]);
+            echo json_encode(['success' => true, 'message' => 'Mail log dosya yolu kaydedildi.', 'log_path' => $logPath]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Kaydedilemedi: ' . $e->getMessage()]);
+        }
+        exit;
+
+    case 'admin_get_mail_logs':
+        require_admin($pdo);
+        $source = trim($_GET['source'] ?? 'auto'); // auto, server, smtp_app
+        $filterStatus = trim($_GET['status'] ?? 'all'); // all, sent, incoming, rejected, deferred
+        $search = mb_strtolower(trim($_GET['search'] ?? ''), 'UTF-8');
+        $limit = max(50, min(1500, (int)($_GET['limit'] ?? 300)));
+
+        $customLogPath = '';
+        try {
+            $stmt = $pdo->query("SELECT setting_value FROM mail_settings WHERE setting_key = 'mail_log_path' LIMIT 1");
+            $customLogPath = trim((string)($stmt->fetchColumn() ?: ''));
+        } catch (Exception $e) {}
+
+        $candidatePaths = [];
+        if ($customLogPath !== '') $candidatePaths[] = $customLogPath;
+        $candidatePaths = array_merge($candidatePaths, [
+            '/var/log/exim4/mainlog',
+            '/var/log/exim4/rejectlog',
+            '/var/log/mail.log',
+            '/var/log/maillog'
+        ]);
+
+        $serverAvailable = false;
+        $detectedPath = '';
+        $readMethod = '';
+        $serverEntries = [];
+
+        if ($source === 'auto' || $source === 'server') {
+            foreach (array_unique($candidatePaths) as $cPath) {
+                $res = read_tail_lines_from_file($cPath, $limit);
+                if ($res[0] === true) {
+                    $serverAvailable = true;
+                    $detectedPath = $cPath;
+                    $readMethod = $res[2] ?? 'direct';
+                    $serverEntries = parse_server_mail_log_lines($res[1]);
+                    break;
+                }
+            }
+        }
+
+        // Also fetch app-level SMTP logs
+        ensure_smtp_logs_table($pdo);
+        $appEntries = [];
+        try {
+            $stmtLogs = $pdo->prepare("SELECT * FROM mail_smtp_logs ORDER BY id DESC LIMIT ?");
+            $stmtLogs->bindValue(1, $limit, PDO::PARAM_INT);
+            $stmtLogs->execute();
+            $rows = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $r) {
+                $st = ($r['status'] === 'sent') ? 'sent' : 'rejected';
+                $appEntries[] = [
+                    'id' => 'app_' . $r['id'],
+                    'timestamp' => $r['created_at'],
+                    'queue_id' => 'SMTP #' . $r['id'],
+                    'status' => $st,
+                    'direction' => ($st === 'sent') ? 'Gönderildi (Webmail SMTP)' : 'Reddedildi / Hata',
+                    'from' => $r['sender_email'],
+                    'to' => $r['recipient_email'] . (!empty($r['cc_bcc']) ? ' (' . $r['cc_bcc'] . ')' : ''),
+                    'subject' => $r['subject'] ?: '(Konusuz)',
+                    'detail' => ($r['smtp_host'] ? '[' . $r['smtp_host'] . ':' . $r['smtp_port'] . '] ' : '') . ($r['smtp_response'] ?: ''),
+                    'raw' => !empty($r['smtp_transcript']) ? $r['smtp_transcript'] : ($r['smtp_response'] ?: '')
+                ];
+            }
+        } catch (Exception $e) {}
+
+        $activeSource = ($source === 'smtp_app') ? 'smtp_app' : (($source === 'server') ? 'server' : ($serverAvailable ? 'server' : 'smtp_app'));
+        $entries = ($activeSource === 'server') ? $serverEntries : $appEntries;
+
+        // Calculate summary counts before status filter
+        $counts = ['all' => count($entries), 'sent' => 0, 'incoming' => 0, 'rejected' => 0, 'deferred' => 0];
+        foreach ($entries as $e) {
+            if (isset($counts[$e['status']])) {
+                $counts[$e['status']]++;
+            }
+        }
+
+        // Apply status & search filters
+        $filtered = array_values(array_filter($entries, function($e) use ($filterStatus, $search) {
+            if ($filterStatus !== 'all' && $e['status'] !== $filterStatus) {
+                return false;
+            }
+            if ($search !== '') {
+                $haystack = mb_strtolower(
+                    ($e['timestamp'] ?? '') . ' ' .
+                    ($e['queue_id'] ?? '') . ' ' .
+                    ($e['from'] ?? '') . ' ' .
+                    ($e['to'] ?? '') . ' ' .
+                    ($e['subject'] ?? '') . ' ' .
+                    ($e['detail'] ?? ''),
+                    'UTF-8'
+                );
+                if (mb_strpos($haystack, $search, 0, 'UTF-8') === false) {
+                    return false;
+                }
+            }
+            return true;
+        }));
+
+        echo safe_json_encode([
+            'success' => true,
+            'active_source' => $activeSource,
+            'server_available' => $serverAvailable,
+            'detected_path' => $detectedPath,
+            'custom_log_path' => $customLogPath,
+            'read_method' => $readMethod,
+            'is_windows' => (stripos(PHP_OS, 'WIN') === 0),
+            'counts' => $counts,
+            'logs' => $filtered
+        ]);
         exit;
 
     // ==========================================
